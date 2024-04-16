@@ -33,6 +33,23 @@ do_mann_whitney <- function(df_, group_column_name, group_1_name, group_2_name, 
     wilcox.test(y1, y2)
 }
 
+#' Star p-values
+#'
+#' @param x numeric vector with pvalues
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' star_p_value(c(1, .4, 1e-6, .04, .07))
+star_p_value <- function(x) {
+    res <- rep("", length(x))
+    res[x < .1] <- "*"
+    res[x < .05] <- "**"
+    res[x < .01] <- "***"
+    res
+}
+
 #' Prettify data.frame with coeffecients
 #'
 #' @param x data.frame with coeefficients
@@ -55,7 +72,7 @@ pretty_t <- function(x, pvalue_name = "Pr(>|z|)") {
         mutate(rounded_est = round(Estimate, 3),
                rounded_std = round(`Std. Error`, 3),
                rounded_pvl = round(pvalue, 3),
-               to_print = paste0(rounded_est,"<br>(", rounded_std, ")[", rounded_pvl, "]"))
+               to_print = paste0(rounded_est, star_p_value(pvalue), "<br>(", rounded_std, ")[", rounded_pvl, "]"))
     # Removing redundant columns and row.names 
     zero_model <- zero_model[c("vars", "to_print")]
     row.names(zero_model) <- NULL
@@ -182,3 +199,40 @@ kable(x = to_frame_multi(lapply(list(h1, h2, h3, h4), function(x) pretty_t(summa
       col.names = c("Variable", "right", "right", "intuitive", "intuitive"), caption = "Second hurdle", escape = F) %>% 
     kable_styling()
 ```
+
+## B6. CRT types
+
+```{r}
+df_$crt_type <- ifelse(df_$crt_right >= 4, "Reflective",
+                       ifelse(df_$crt_right <= 2, "Impulsive", "Residuals"))
+df_$crt_type <- factor(df_$crt_type, levels = c("Reflective", "Impulsive", "Residuals"))
+
+pop_kw <- kruskal.test(crt_type ~ kept, df_)
+
+df_ %>%
+    group_by(crt_type) %>%
+    summarise(Mean = mean(kept, na.rm = TRUE),
+              SE = sd(kept, na.rm = TRUE) / sqrt(n())) %>% 
+    ggplot(aes(x = crt_type, y = Mean, fill = as.factor(crt_type))) +
+    geom_col(stat = "identity", position = position_dodge()) +
+    geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE), width = 0.05) +
+    theme_minimal() +
+    labs(x = NULL, y = "mean of Got", fill = NULL) +
+    scale_fill_brewer(palette = "Red") +
+    coord_cartesian(ylim = c(25, 40), expand =  F) +
+    theme(legend.position = c(0.5, .95), legend.direction = "horizontal") +
+    # Annotating tests results
+    annotate(geom = "text", x = 1.5, y = 30.5, label = round(do_mann_whitney(df_, "crt_type", "Reflective", "Impulsive", "kept")$p.value, 4)) +
+    annotate(geom = "segment", x = "Reflective", xend = "Impulsive", y = 30, yend = 30) +
+    annotate(geom = "text", x = 2.5, y = 27.5, label = round(do_mann_whitney(df_, "crt_type", "Impulsive", "Residuals", "kept")$p.value, 4)) +
+    annotate(geom = "segment", x = "Impulsive", xend = "Residuals", y = 27, yend = 27) +
+    annotate(geom = "text", x = 2, y = 25.75, label = round(do_mann_whitney(df_, "crt_type", "Reflective", "Residuals", "kept")$p.value, 4)) +
+    annotate(geom = "segment", x = "Reflective", xend = "Residuals", y = 25.25, yend = 25.25) +
+    annotate(geom = "text", x = 3, y = 37, label = sprintf("Population KW\np = %s, χ² = %s", round(pop_kw$p.value, 4), round(pop_kw$statistic, 4)))
+
+```
+
+Comment:
+
+- population KW results is similar to presented in the paper
+- Manney-Whitney results are significantly different than those presented in the paper
