@@ -1,0 +1,155 @@
+---
+title: "Appendix B Further statistical analyses"
+subtitle: "Reproduce efforts"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# libraries ----
+library(dplyr)
+library(readxl)
+library(ggplot2)
+library(kableExtra)
+library(pscl)
+# options ----
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+# functions ----
+#' Perform Mann-Whitney U test
+#'
+#' @param df_ data.frame
+#' @param group_column_name name of column with groups
+#' @param group_1_name name of first group
+#' @param group_2_name name of second group
+#' @param value_name name of column with values to compare
+#'
+#' @return
+#' @export
+#'
+#' @examples
+do_mann_whitney <- function(df_, group_column_name, group_1_name, group_2_name, value_name) {
+    y1 <- df_[df_[[group_column_name]] == group_1_name, ][[value_name]]
+    y2 <- df_[df_[[group_column_name]] == group_2_name, ][[value_name]]
+    wilcox.test(y1, y2)
+}
+
+pretty_t <- function(x) {
+    zero_model <- as.data.frame(x)
+    zero_model$vars <- row.names(zero_model)
+    zero_model <- zero_model[zero_model$vars != "(Intercept)",]
+    zero_model <- zero_model %>% mutate(pp = paste0(round(Estimate, 3),"<br>",
+                                                    " (", round(`Std. Error`, 3), ")[", round(`Pr(>|z|)`, 3), "]"))
+    zero_model <- zero_model[c("vars", "pp")]
+    row.names(zero_model) <- NULL
+    zero_model
+}
+
+to_frame_multi <- function(aa) {
+    Reduce(function(x, y) merge(x, y, by = "vars", all = T, sort = F), x = aa)
+}
+
+# reading data ----
+link_to_data <- "https://osf.io/download/uh4z7/?view_only=de730bd958ef4711819216d30361c8d8"
+file_to_save <- "data_DMDDG.xls"
+
+if (!file.exists(file_to_save)) download.file(url = link_to_data, destfile = file_to_save)
+
+df_ <- read_xls(file_to_save)
+
+# data manipulation ----
+df_$treatment_group <- ifelse(grepl("^control", df_$treatment), "C",
+                              ifelse(grepl("^delay", df_$treatment), "TD", "MD"))
+
+df_$game_type <- ifelse(df_$bully == 0, "SDG", "BDG")
+df_$game_type <- factor(df_$game_type, levels = c("SDG", "BDG"))
+df_$bully_type <- ifelse(df_$bully == 0, "NB", "B")
+df_$give <- 60 - df_$kept
+```
+
+## B.2 Multiple hypothesis adjustments
+
+```{r mult_hyp_adj}
+# pvalues used by authors
+authors_p_values <- c(0.7654, 0.4206, 0.2735, 0.7723, 0.0136, 0.0078, 0.2025, 0.1997, 0.0095)
+# pvalues reported as adjusted by authors using Benjamini Hochberg 95 method
+reported_adjusted_reported_p_values <- c(0.7723, 0.5401, 0.4103, 0.7723, 0.0408, 0.0408, 0.3645, 0.3645, 0.0408)
+# pvalues adjusted using Benjamini Hochberg 95 method based on pvalues provided by authors
+adjusted_reported_values <- p.adjust(authors_p_values, method = "BH")
+
+# our pvalues
+our_pvalues <- list(
+    `(NB) C vs TD` = do_mann_whitney(df_ %>% filter(bully_type == "NB"), "treatment_group", "C", "TD", "kept")$p.value,
+    `(NB) TD vs MD` = do_mann_whitney(df_ %>% filter(bully_type == "NB"), "treatment_group", "TD", "MD", "kept")$p.value,
+    `(NB) C vs MD` = do_mann_whitney(df_ %>% filter(bully_type == "NB"), "treatment_group", "C", "MD", "kept")$p.value,
+    `\\(B) C vs TD` = do_mann_whitney(df_ %>% filter(bully_type == "B"), "treatment_group", "C", "TD", "kept")$p.value,
+    `\\(B) TD vs MD` = do_mann_whitney(df_ %>% filter(bully_type == "B"), "treatment_group", "TD", "MD", "kept")$p.value,
+    `\\(B) C vs MD` = do_mann_whitney(df_ %>% filter(bully_type == "B"), "treatment_group", "C", "MD", "kept")$p.value,
+    `\\(C) NB vs B` = do_mann_whitney(df_ %>% filter(treatment_group == "C"), "bully_type", "B", "NB", "kept")$p.value,
+    `(TD) NB vs B` = do_mann_whitney(df_ %>% filter(treatment_group == "TD"), "bully_type", "B", "NB", "kept")$p.value,
+    `\\(MD) NB vs B` = do_mann_whitney(df_ %>% filter(treatment_group == "MD"), "bully_type", "B", "NB", "kept")$p.value
+)
+
+# our adjusted pvalues
+our_adj_pv <- p.adjust(unlist(our_pvalues), method = "BH")
+
+# print the results
+kable(x = data.frame(vars = names(our_pvalues),
+                     authors_p_values = authors_p_values, 
+                     reported_adjusted_reported_p_values = reported_adjusted_reported_p_values, 
+                     adjusted_reported_values = round(adjusted_reported_values,4),
+                     our_pvalues = round(unlist(our_pvalues), 4),
+                     our_adj_pv = round(our_adj_pv, 4), 
+                     row.names = NULL), 
+      caption = "Control for multiple hypothesis testing using Benjamini and Hochberg (1995)", 
+      col.names = c("Dependent variable: Got hypothesis", "(p-value)", "(adjusted)", "(adjusted p-values)", "(our-pvalues)", "(our adj p values)")) %>% 
+    kable_styling()
+```
+
+Comment: 
+
+- there is a difference between adjusted p-values reported in paper and adjustment based on the reported pvalues for (NB) TD vs MD group (0.5401 vs 0.5408) and (NB) C vs MD group (0.4103 vs 0.4102)
+- there is a slight difference in pvalues for Mann-Whitey test reported in paper and based on our calculations. This difference however is small, on the fourth digits, and it does not change the conclusions
+- adjusting our p-values yields similar results to adjusted p-values reported in paper.
+
+## B.5 Frequencies of Got by treatment and Hurdle models
+
+The figure illustrates the frequency distribution of the amounts retained by dictators in each condition.
+
+```{r got_hist}
+df_ %>% group_by(bully_type, treatment_group, kept) %>% 
+    summarise(pp = n()) %>% 
+    group_by(bully_type, treatment_group) %>% 
+    mutate(nn = sum(pp), pp2 = pp/nn) %>%
+    ungroup() %>% 
+    ggplot() +
+    geom_col(aes(x = kept, y = pp2)) +
+    labs(x = "got", y = "Percent") +
+    scale_y_continuous(labels = scales::percent) +
+    facet_wrap(~bully_type + treatment_group) + theme_minimal()
+```
+
+Comment:
+
+- there is slight difference comparing reported histograms to our histogram
+- this difference however does not change conclusion regarding need to consider Hurdle model
+
+Reproducing Hurdle Model
+
+```{r hurdle}
+# Declaring models
+h1 <- hurdle(formula = give ~ game_type + treatment_group + crt_right + as.factor(female) + household_income, data = df_)
+h2 <- hurdle(formula = give ~ game_type + treatment_group + crt_right + as.factor(female) + household_income + ee + nb + ne, data = df_)
+h3 <- hurdle(formula = give ~ game_type + treatment_group + crt_int + as.factor(female) + household_income, data = df_)
+h4 <- hurdle(formula = give ~ game_type + treatment_group + crt_int + as.factor(female) + household_income + ee + nb + ne, data = df_)
+
+# Printing results for count part
+kable(x = to_frame_multi(lapply(list(h1, h2, h3, h4), function(x) pretty_t(summary(x)$coefficients$count))), 
+      col.names = c("Variable", "right", "right", "intuitive", "intuitive"), caption = "First hurdle", escape = F) %>% 
+    kable_styling()
+```
+
+```{r}
+# Printing results for zero part
+kable(x = to_frame_multi(lapply(list(h1, h2, h3, h4), function(x) pretty_t(summary(x)$coefficients$zero))), 
+      col.names = c("Variable", "right", "right", "intuitive", "intuitive"), caption = "Second hurdle", escape = F) %>% 
+    kable_styling()
+```
