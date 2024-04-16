@@ -26,25 +26,54 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 #' @export
 #'
 #' @examples
+#' do_mann_whitney(mtcars, "cyl", "4", "6", "mpg")
 do_mann_whitney <- function(df_, group_column_name, group_1_name, group_2_name, value_name) {
     y1 <- df_[df_[[group_column_name]] == group_1_name, ][[value_name]]
     y2 <- df_[df_[[group_column_name]] == group_2_name, ][[value_name]]
     wilcox.test(y1, y2)
 }
 
-pretty_t <- function(x) {
+#' Prettify data.frame with coeffecients
+#'
+#' @param x data.frame with coeefficients
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' pretty_t(summary(lm(hp ~ ., mtcars))$coefficients, pvalue_name = "Pr(>|t|)")
+pretty_t <- function(x, pvalue_name = "Pr(>|z|)") {
     zero_model <- as.data.frame(x)
+    # Getting variable names
     zero_model$vars <- row.names(zero_model)
-    zero_model <- zero_model[zero_model$vars != "(Intercept)",]
-    zero_model <- zero_model %>% mutate(pp = paste0(round(Estimate, 3),"<br>",
-                                                    " (", round(`Std. Error`, 3), ")[", round(`Pr(>|z|)`, 3), "]"))
-    zero_model <- zero_model[c("vars", "pp")]
+    # Removing intercept
+    zero_model <- zero_model[zero_model$vars != "(Intercept)", ]
+    # Copying column with pvalue
+    zero_model$pvalue <- zero_model[[pvalue_name]]
+    # Creating print-friendly column
+    zero_model <- zero_model %>% 
+        mutate(rounded_est = round(Estimate, 3),
+               rounded_std = round(`Std. Error`, 3),
+               rounded_pvl = round(pvalue, 3),
+               to_print = paste0(rounded_est,"<br>(", rounded_std, ")[", rounded_pvl, "]"))
+    # Removing redundant columns and row.names 
+    zero_model <- zero_model[c("vars", "to_print")]
     row.names(zero_model) <- NULL
     zero_model
 }
 
-to_frame_multi <- function(aa) {
-    Reduce(function(x, y) merge(x, y, by = "vars", all = T, sort = F), x = aa)
+#' Merge list of data.frames
+#'
+#' @param df_list_to_merge list of data frames to merge
+#' @param merge_by name of column to merge by
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' to_frame_multi(list(data.frame(var1 = c("A", "V"), var2 = 3:4), data.frame(var1 = c("V", "W"), var2 = 1:2)), "var1")
+to_frame_multi <- function(df_list_to_merge, merge_by = "vars") {
+    Reduce(function(x, y) merge(x, y, by = merge_by, all = T, sort = F), x = df_list_to_merge)
 }
 
 # reading data ----
