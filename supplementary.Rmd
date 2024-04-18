@@ -1,0 +1,238 @@
+---
+title: "Appendix B Further statistical analyses"
+subtitle: "Reproduce efforts"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# libraries ----
+library(dplyr)
+library(readxl)
+library(ggplot2)
+library(kableExtra)
+library(pscl)
+# options ----
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+# functions ----
+#' Perform Mann-Whitney U test
+#'
+#' @param df_ data.frame
+#' @param group_column_name name of column with groups
+#' @param group_1_name name of first group
+#' @param group_2_name name of second group
+#' @param value_name name of column with values to compare
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' do_mann_whitney(mtcars, "cyl", "4", "6", "mpg")
+do_mann_whitney <- function(df_, group_column_name, group_1_name, group_2_name, value_name) {
+    y1 <- df_[df_[[group_column_name]] == group_1_name, ][[value_name]]
+    y2 <- df_[df_[[group_column_name]] == group_2_name, ][[value_name]]
+    wilcox.test(y1, y2)
+}
+
+#' Star p-values
+#'
+#' @param x numeric vector with pvalues
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' star_p_value(c(1, .4, 1e-6, .04, .07))
+star_p_value <- function(x) {
+    res <- rep("", length(x))
+    res[x < .1] <- "*"
+    res[x < .05] <- "**"
+    res[x < .01] <- "***"
+    res
+}
+
+#' Prettify data.frame with coeffecients
+#'
+#' @param x data.frame with coeefficients
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' pretty_t(summary(lm(hp ~ ., mtcars))$coefficients, pvalue_name = "Pr(>|t|)")
+pretty_t <- function(x, pvalue_name = "Pr(>|z|)") {
+    zero_model <- as.data.frame(x)
+    # Getting variable names
+    zero_model$vars <- row.names(zero_model)
+    # Removing intercept
+    zero_model <- zero_model[zero_model$vars != "(Intercept)", ]
+    # Copying column with pvalue
+    zero_model$pvalue <- zero_model[[pvalue_name]]
+    # Creating print-friendly column
+    zero_model <- zero_model %>% 
+        mutate(rounded_est = round(Estimate, 3),
+               rounded_std = round(`Std. Error`, 3),
+               rounded_pvl = round(pvalue, 3),
+               to_print = paste0(rounded_est, star_p_value(pvalue), "<br>(", rounded_std, ")[", rounded_pvl, "]"))
+    # Removing redundant columns and row.names 
+    zero_model <- zero_model[c("vars", "to_print")]
+    row.names(zero_model) <- NULL
+    zero_model
+}
+
+#' Merge list of data.frames
+#'
+#' @param df_list_to_merge list of data frames to merge
+#' @param merge_by name of column to merge by
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' to_frame_multi(list(data.frame(var1 = c("A", "V"), var2 = 3:4), data.frame(var1 = c("V", "W"), var2 = 1:2)), "var1")
+to_frame_multi <- function(df_list_to_merge, merge_by = "vars") {
+    Reduce(function(x, y) merge(x, y, by = merge_by, all = T, sort = F), x = df_list_to_merge)
+}
+
+# reading data ----
+link_to_data <- "https://osf.io/download/uh4z7/?view_only=de730bd958ef4711819216d30361c8d8"
+file_to_save <- "data_DMDDG.xls"
+
+if (!file.exists(file_to_save)) download.file(url = link_to_data, destfile = file_to_save)
+
+df_ <- read_xls(file_to_save)
+
+# data manipulation ----
+df_$treatment_group <- ifelse(grepl("^control", df_$treatment), "C",
+                              ifelse(grepl("^delay", df_$treatment), "TD", "MD"))
+
+df_$game_type <- ifelse(df_$bully == 0, "SDG", "BDG")
+df_$game_type <- factor(df_$game_type, levels = c("SDG", "BDG"))
+df_$bully_type <- ifelse(df_$bully == 0, "NB", "B")
+df_$give <- 60 - df_$kept
+```
+
+## B.2 Multiple hypothesis adjustments
+
+```{r mult_hyp_adj}
+# pvalues used by authors
+authors_p_values <- c(0.7654, 0.4206, 0.2735, 0.7723, 0.0136, 0.0078, 0.2025, 0.1997, 0.0095)
+# pvalues reported as adjusted by authors using Benjamini Hochberg 95 method
+reported_adjusted_reported_p_values <- c(0.7723, 0.5401, 0.4103, 0.7723, 0.0408, 0.0408, 0.3645, 0.3645, 0.0408)
+# pvalues adjusted using Benjamini Hochberg 95 method based on pvalues provided by authors
+adjusted_reported_values <- p.adjust(authors_p_values, method = "BH")
+
+# our pvalues
+our_pvalues <- list(
+    `(NB) C vs TD` = do_mann_whitney(df_ %>% filter(bully_type == "NB"), "treatment_group", "C", "TD", "kept")$p.value,
+    `(NB) TD vs MD` = do_mann_whitney(df_ %>% filter(bully_type == "NB"), "treatment_group", "TD", "MD", "kept")$p.value,
+    `(NB) C vs MD` = do_mann_whitney(df_ %>% filter(bully_type == "NB"), "treatment_group", "C", "MD", "kept")$p.value,
+    `\\(B) C vs TD` = do_mann_whitney(df_ %>% filter(bully_type == "B"), "treatment_group", "C", "TD", "kept")$p.value,
+    `\\(B) TD vs MD` = do_mann_whitney(df_ %>% filter(bully_type == "B"), "treatment_group", "TD", "MD", "kept")$p.value,
+    `\\(B) C vs MD` = do_mann_whitney(df_ %>% filter(bully_type == "B"), "treatment_group", "C", "MD", "kept")$p.value,
+    `\\(C) NB vs B` = do_mann_whitney(df_ %>% filter(treatment_group == "C"), "bully_type", "B", "NB", "kept")$p.value,
+    `(TD) NB vs B` = do_mann_whitney(df_ %>% filter(treatment_group == "TD"), "bully_type", "B", "NB", "kept")$p.value,
+    `\\(MD) NB vs B` = do_mann_whitney(df_ %>% filter(treatment_group == "MD"), "bully_type", "B", "NB", "kept")$p.value
+)
+
+# our adjusted pvalues
+our_adj_pv <- p.adjust(unlist(our_pvalues), method = "BH")
+
+# print the results
+kable(x = data.frame(vars = names(our_pvalues),
+                     authors_p_values = authors_p_values, 
+                     reported_adjusted_reported_p_values = reported_adjusted_reported_p_values, 
+                     adjusted_reported_values = round(adjusted_reported_values,4),
+                     our_pvalues = round(unlist(our_pvalues), 4),
+                     our_adj_pv = round(our_adj_pv, 4), 
+                     row.names = NULL), 
+      caption = "Control for multiple hypothesis testing using Benjamini and Hochberg (1995)", 
+      col.names = c("Dependent variable: Got hypothesis", "(p-value)", "(adjusted)", "(adjusted p-values)", "(our-pvalues)", "(our adj p values)")) %>% 
+    kable_styling()
+```
+
+Comment: 
+
+- there is a difference between adjusted p-values reported in paper and adjustment based on the reported pvalues for (NB) TD vs MD group (0.5401 vs 0.5408) and (NB) C vs MD group (0.4103 vs 0.4102)
+- there is a slight difference in pvalues for Mann-Whitey test reported in paper and based on our calculations. This difference however is small, on the fourth digits, and it does not change the conclusions
+- adjusting our p-values yields similar results to adjusted p-values reported in paper.
+
+## B.5 Frequencies of Got by treatment and Hurdle models
+
+The figure illustrates the frequency distribution of the amounts retained by dictators in each condition.
+
+```{r got_hist}
+df_ %>% group_by(bully_type, treatment_group, kept) %>% 
+    summarise(pp = n()) %>% 
+    group_by(bully_type, treatment_group) %>% 
+    mutate(nn = sum(pp), pp2 = pp/nn) %>%
+    ungroup() %>% 
+    ggplot() +
+    geom_col(aes(x = kept, y = pp2)) +
+    labs(x = "got", y = "Percent") +
+    scale_y_continuous(labels = scales::percent) +
+    facet_wrap(~bully_type + treatment_group) + theme_minimal()
+```
+
+Comment:
+
+- there is slight difference comparing reported histograms to our histogram
+- this difference however does not change conclusion regarding need to consider Hurdle model
+
+Reproducing Hurdle Model
+
+```{r hurdle}
+# Declaring models
+h1 <- hurdle(formula = give ~ game_type + treatment_group + crt_right + as.factor(female) + household_income, data = df_)
+h2 <- hurdle(formula = give ~ game_type + treatment_group + crt_right + as.factor(female) + household_income + ee + nb + ne, data = df_)
+h3 <- hurdle(formula = give ~ game_type + treatment_group + crt_int + as.factor(female) + household_income, data = df_)
+h4 <- hurdle(formula = give ~ game_type + treatment_group + crt_int + as.factor(female) + household_income + ee + nb + ne, data = df_)
+
+# Printing results for count part
+kable(x = to_frame_multi(lapply(list(h1, h2, h3, h4), function(x) pretty_t(summary(x)$coefficients$count))), 
+      col.names = c("Variable", "right", "right", "intuitive", "intuitive"), caption = "First hurdle", escape = F) %>% 
+    kable_styling()
+```
+
+```{r}
+# Printing results for zero part
+kable(x = to_frame_multi(lapply(list(h1, h2, h3, h4), function(x) pretty_t(summary(x)$coefficients$zero))), 
+      col.names = c("Variable", "right", "right", "intuitive", "intuitive"), caption = "Second hurdle", escape = F) %>% 
+    kable_styling()
+```
+
+## B6. CRT types
+
+```{r}
+df_$crt_type <- ifelse(df_$crt_right >= 4, "Reflective",
+                       ifelse(df_$crt_right <= 2, "Impulsive", "Residuals"))
+df_$crt_type <- factor(df_$crt_type, levels = c("Reflective", "Impulsive", "Residuals"))
+
+pop_kw <- kruskal.test(crt_type ~ kept, df_)
+
+df_ %>%
+    group_by(crt_type) %>%
+    summarise(Mean = mean(kept, na.rm = TRUE),
+              SE = sd(kept, na.rm = TRUE) / sqrt(n())) %>% 
+    ggplot(aes(x = crt_type, y = Mean, fill = as.factor(crt_type))) +
+    geom_col(stat = "identity", position = position_dodge()) +
+    geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE), width = 0.05) +
+    theme_minimal() +
+    labs(x = NULL, y = "mean of Got", fill = NULL) +
+    scale_fill_brewer(palette = "Red") +
+    coord_cartesian(ylim = c(25, 40), expand =  F) +
+    theme(legend.position = c(0.5, .95), legend.direction = "horizontal") +
+    # Annotating tests results
+    annotate(geom = "text", x = 1.5, y = 30.5, label = round(do_mann_whitney(df_, "crt_type", "Reflective", "Impulsive", "kept")$p.value, 4)) +
+    annotate(geom = "segment", x = "Reflective", xend = "Impulsive", y = 30, yend = 30) +
+    annotate(geom = "text", x = 2.5, y = 27.5, label = round(do_mann_whitney(df_, "crt_type", "Impulsive", "Residuals", "kept")$p.value, 4)) +
+    annotate(geom = "segment", x = "Impulsive", xend = "Residuals", y = 27, yend = 27) +
+    annotate(geom = "text", x = 2, y = 25.75, label = round(do_mann_whitney(df_, "crt_type", "Reflective", "Residuals", "kept")$p.value, 4)) +
+    annotate(geom = "segment", x = "Reflective", xend = "Residuals", y = 25.25, yend = 25.25) +
+    annotate(geom = "text", x = 3, y = 37, label = sprintf("Population KW\np = %s, χ² = %s", round(pop_kw$p.value, 4), round(pop_kw$statistic, 4)))
+
+```
+
+Comment:
+
+- population KW results is similar to presented in the paper
+- Manney-Whitney results are significantly different than those presented in the paper
