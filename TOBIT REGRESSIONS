@@ -1,0 +1,48 @@
+# Tobit regression models with the specified conditions and variables as per the original analysis
+
+
+# Model 1
+tobit_model1 <- censReg(kept ~ bully + attention, left = 0, right = 60, data = data, subset = NULL, method = "BFGS")
+
+# Model 2
+tobit_model2 <- censReg(kept ~ bully + attention + ee + nb + ne, left = 0, right = 60, data = data, subset = NULL, method = "BFGS")
+
+# Model 3
+tobit_model3 <- censReg(kept ~ moc1 + moc2 + ee + nb + ne, left = 0, right = 60, data = subset(data, bully == 0), subset = NULL, method = "BFGS")
+
+# Model 4,
+tobit_model4 <- censReg(kept ~ moc1 + moc2:ee + moc2:ne + moc2:nb, left = 0, right = 60, data = subset(data, bully == 0), subset = NULL, method = "BFGS")
+
+# Model 5
+tobit_model5 <- censReg(kept ~ moc1 + moc2 + ee + nb + ne, left = 0, right = 60, data = subset(data, bully == 1), subset = NULL, method = "BFGS")
+
+# Model 6
+tobit_model6 <- censReg(kept ~ moc1 + moc2:ee + moc2:ne + moc2:nb, left = 0, right = 60, data = subset(data, bully == 1), subset = NULL, method = "BFGS")
+
+
+extract_tobit_info <- function(model) {
+  tidy_model <- tidy(model)
+  glance_model <- glance(model)
+  coefficients <- tidy_model %>%
+    select(term, estimate)
+  return(list(coefficients = coefficients))
+}
+
+# Extract information from each Tobit model
+model_info <- list(
+  Model_1 = extract_tobit_info(tobit_model1),
+  Model_2 = extract_tobit_info(tobit_model2),
+  Model_3 = extract_tobit_info(tobit_model3),
+  Model_4 = extract_tobit_info(tobit_model4),
+  Model_5 = extract_tobit_info(tobit_model5),
+  Model_6 = extract_tobit_info(tobit_model6)
+)
+
+
+# Create Reshape dataframe and print
+coefficients_df <- bind_rows(lapply(model_info, function(x) x$coefficients), .id = "Model")
+
+coefficients_df_wide <- spread(coefficients_df, term, estimate)
+print(coefficients_df_wide)
+
+
