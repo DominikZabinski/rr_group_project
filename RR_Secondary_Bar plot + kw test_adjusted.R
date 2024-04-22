@@ -4,8 +4,10 @@ library(dplyr)
 library(readxl)
 library(ggplot2)
 
+source("_functions.R")
+
 # Load the dataset----------
-data <- read_excel("data_DMDDG.xls")
+data <- download_and_load_data()
 
 # view the data
 head(data)

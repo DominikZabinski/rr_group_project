@@ -14,6 +14,7 @@ library(pscl)
 # options ----
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 # functions ----
+source("_functions.R")
 #' Perform Mann-Whitney U test
 #'
 #' @param df_ data.frame
@@ -94,12 +95,7 @@ to_frame_multi <- function(df_list_to_merge, merge_by = "vars") {
 }
 
 # reading data ----
-link_to_data <- "https://osf.io/download/uh4z7/?view_only=de730bd958ef4711819216d30361c8d8"
-file_to_save <- "data_DMDDG.xls"
-
-if (!file.exists(file_to_save)) download.file(url = link_to_data, destfile = file_to_save)
-
-df_ <- read_xls(file_to_save)
+df_ <- download_and_load_data()
 
 # data manipulation ----
 df_$treatment_group <- ifelse(grepl("^control", df_$treatment), "C",

@@ -1,13 +1,13 @@
 # For data manipulation
 library(dplyr)
-library(readr)
+library(readxl)
 library(ggplot2)
 library(tidyr)
 
 # Load the dataset
 
 # Full Dataset
-df <- read_csv("E:/RR/data_DMDDG.csv")
+df <- download_and_load_data()
 
 # Map the treatments to 'C', 'TD', and 'MD'
 df$treatment_group <- ifelse(grepl("^control", df$treatment), "C",
