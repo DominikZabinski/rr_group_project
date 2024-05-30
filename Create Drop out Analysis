@@ -1,0 +1,38 @@
+# Drop out Analysis
+
+# In this section, a smaller dataset is created and it is verified against the hypothesis observed in the full dataset
+
+# This piece of code shortens the dataset for specific conditions and data observations. 
+# Frequency tables for these new variables are generated to examine their distributions, and finally, the dataset is restored to its original state before these manipulations were performed.
+
+library("dplyr")
+
+# Creating a backup of the original data (similar to preserve in Stata)
+data_backup <- data
+
+
+
+
+data <- data %>%
+  filter(i >= 3)
+
+# Generating dropping on task and generally dropping variable based on the conditions below
+data <- data %>%
+  mutate(drop_on_task = ifelse(i == 4, 1, 0))
+
+
+data <- data %>%
+  mutate(drop_general = ifelse(i < 9, 1, 0))
+
+# Summarizing the drop_general variable to see how many instances are dropped generally
+table(data$drop_general)
+
+
+# Summarizing the drop_on_task variable to see how many instances are dropped on task
+table(data$drop_on_task)
+
+# As per author's observation, while the findings of the main analysis regarding the effects
+# of the experimental conditions on Got are confirmed by the Tobit
+# regression, we also see that such findings are not washed out by
+# controlling for elicited variables, which in turn appear not to be affected
+# by the experimental conditions. 
