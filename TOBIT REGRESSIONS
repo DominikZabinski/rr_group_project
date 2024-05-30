@@ -1,4 +1,17 @@
-# Tobit regression models with the specified conditions and variables as per the original analysis
+# Installing the libraries
+
+library(censReg)
+library(broom)
+library(dplyr)
+library(tidyr)
+
+# loading data
+df <- read_csv("D:/4 Sem/RR/data_DMDDG.csv")
+
+# Tobit regression models with the specified conditions
+
+# Tobit regression modelsis a specialized statistical model designed to handle scenarios where the dependent variable is censored. Censoring occurs when the variable of interest is only observable within a certain range.
+# This type of model is essential for accurately analyzing data where traditional regression techniques may fall short due to the limitations imposed by censoring.
 
 
 # Model 1
