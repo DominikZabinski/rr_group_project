@@ -5,12 +5,27 @@
 # This piece of code shortens the dataset for specific conditions and data observations. 
 # Frequency tables for these new variables are generated to examine their distributions, and finally, the dataset is restored to its original state before these manipulations were performed.
 
-library("dplyr")
+# Reading data ----
+link_to_data <- "https://osf.io/download/uh4z7/?view_only=de730bd958ef4711819216d30361c8d8"
+file_to_save <- "data_DMDDG.xls"
+
+if (!file.exists(file_to_save)) download.file(url = link_to_data, destfile = file_to_save)
+
+
+df_ <- read_xls(file_to_save)
 
 # Creating a backup of the original data (similar to preserve in Stata)
-data_backup <- data
+data_backup <- df_
 
+# Creating a temporary dataset for dropout analysis
 
+data <- df_
+
+# Loading library
+
+library("dplyr")
+
+library("dplyr")
 
 
 data <- data %>%
@@ -36,3 +51,9 @@ table(data$drop_on_task)
 # regression, we also see that such findings are not washed out by
 # controlling for elicited variables, which in turn appear not to be affected
 # by the experimental conditions. 
+
+
+# The occurrence of dropouts is one of the limitations of the online experimental setting. 
+# However, this occurrence is rare in our experiment (0.5 percent drop out from the experiment overall
+# at least to some extent, it can be ascribed to exogenous factors.
+
