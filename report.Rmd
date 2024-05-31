@@ -1,0 +1,282 @@
+---
+title: "Reproducing results"
+subtitle: 'based on the research by Bilancini, Ennio, et al. "Delaying and motivating decisions in the (bully) dictator game." Journal of Behavioral and Experimental Economics 107 (2023): 102106.'
+output: 
+    html_document:
+        toc: true
+        toc_float: true
+---
+
+# Introduction
+
+# Data preparation
+
+# Reproducing results - main article
+
+## Table 1. Number of participants for each of the 3 × 2 experimental conditions.
+
+Table 1. Number of participants for each of the 3 × 2 experimental conditions.
+
+|                        | Control          | Time Delay         | Motivated Delay  |
+|------------------------|------------------|--------------------|------------------|
+| **Standard Dictator Game** | DG-C (N=174) | DG-TD (N=169)      | DG-MD (N=166)    |
+| **Bully Dictator Game**    | BDG-C (N=176)| BDG-TD (N=174)     | BDG-MD (N=163)   |
+
+## Table 2. Differences across treatments of socio-demographic characteristics.
+
+Table 2. Differences across treatments of socio-demographic characteristics.
+
+| Variable           | Test           | p (by treatment) | p (by cogn. manip.) |
+|--------------------|----------------|------------------|---------------------|
+| CRT right          | Kruskal–Wallis | 0.272            | 0.378               |
+| CRT int            | Kruskal–Wallis | 0.221            | 0.280               |
+| Female             | $\chi^2$.      | 0.527            | 0.488               |
+| Age                | Kruskal–Wallis | 0.510            | 0.545               |
+| Household income   | Kruskal–Wallis | 0.286            | 0.404               |
+| Children           | $\chi^2$       | 0.821            | 0.669               |
+| Full time job      | $\chi^2$       | 0.171            | 0.688               |
+| Christian          | $\chi^2$       | 0.339            | 0.518               |
+| Student            | $\chi^2$       | 0.994            | 0.913               |
+| Democrat           | $\chi^2$       | 0.549            | 0.398               |
+
+
+
+## Figure 2
+
+![](https://ars.els-cdn.com/content/image/1-s2.0-S2214804323001325-gr2_lrg.jpg)
+
+Authors comments:
+
+> Fig. 2. In the Standard Dictator Game, the amount got by the dictators does not differ significantly under the different cognitive manipulations and the control treatment. There is no statistically significant difference among the average of money got by the dictators in the Control (M = 36.09, SD = 12.01), the Time Delay (M  = 35.32, SD = 11.23), and the Motivated Delay (M = 33.61, SD = 15.45) treatments (Kruskal–Wallis, p = 0.5204).
+
+## Figure 3
+
+![](https://ars.els-cdn.com/content/image/1-s2.0-S2214804323001325-gr3_lrg.jpg)
+
+Authors comments:
+
+> Fig. 3. In the Bully Dictator Game, the dictators get the lowest amount under motivated delay. The average amount of money the dictators got in the Motivated delay treatment (M = 30.80, SD = 12.22) is lower than in the Time Delay treatment (M = 33.28, SD = 12.91), and lower than the amount of money got by the dictators in the Control treatment (M = 34.54, SD = 13.17). Statistically significant differences are observed among the TD, MD, and C treatments (Kruskal–Wallis, p = 0.0145). Pairwise comparisons reveal that the MD treatment has a significantly lower average Got level compared to both TD (Mann–Whitney test, $z = 2.467$, $p = 0.0136$) and C treatments (Mann–Whitney test, $z = 2.659$, $p = 0.0078$), while no significant difference is found between the TD and C treatments (Mann–Whitney test, $z = 0.289$, $p = 0.7723$). Note. Confidence intervals on means are at 95%.
+
+## Figure 4
+
+![](https://ars.els-cdn.com/content/image/1-s2.0-S2214804323001325-gr4_lrg.jpg)
+
+Authors comments:
+
+> Fig. 4. The amount got by the dictator in the Bully Dictator game is consistently lower than that in the standard Dictator game, but only under Motivated Delay the difference is statistically significant. The average amount the dictator got under Motivated Delay is lower in the Bully variant of the dictator game (M = 30.80, SD = 12.22) than in the standard one (M = 33.61, SD = 15.46). The average amount the dictator got under Time Delay is lower in the Bully variant of the Dictator game (M  = 33.28, SD = 12.9) than in the standard one (M = 35.33, SD = 11.24). The average amount the dictator got in the Control treatment is lower in the Bully variant of the dictator game (M = 34.54, SD = 13.17) than in the standard one (M = 36.09, SD = 12.01). However, the difference between the two variants of the dictator game is statistically significant only in the case of Motivated Delay (Mann–Whitney test, $z= 2.595$, $p = 0.0095$).
+
+## Figure 5
+
+![](https://ars.els-cdn.com/content/image/1-s2.0-S2214804323001325-gr5_lrg.jpg)
+
+Authors comment:
+
+> Fig. 5. The elicited norms (a) do not differ under the different cognitive manipulations and the control, (b) do not differ between the standard and the Bully Dictator Game The difference in the means of Empirical Expectations (EE), Normative Beliefs (NB) and Normative Expectations (NE) are not statistically significant neither with respect to cognitive manipulations nor to variants of the dictator game. We only note a mild effect of the cognitive manipulation on NB. EE: C vs TD vs MD, Kruskal–Wallis, $p =  0.3995$; DG vs BDG: Mann–Whitney test, $p =  0.9215$. NB: C vs TD vs MD, Kruskal–Wallis, $p =  0.0789$; DG vs BDG: Mann–Whitney test, $p =  0.4578$. NB: C vs TD vs MD, Kruskal–Wallis, $p =  0.7893$; DG vs BDG: Mann–Whitney test, $p =  0.9358$. 
+
+## Table 3. Tobit regressions of elicited norms on experimental conditions.
+
+Table 3. Tobit regressions of elicited norms on experimental conditions.
+
+|                       | (1) EE              | (2) NB              | (3) NE              |
+|-----------------------|---------------------|---------------------|---------------------|
+| **BDG**               | 0.0693              | −0.399              | −0.0731             |
+|                       | (0.925)[0.940]      | (0.716)[0.578]      | (0.757)[0.923]      |
+| **TD**                | −0.256              | 0.179               | −0.267              |
+|                       | (1.106)[0.817]      | (0.844)[0.832]      | (0.898)[0.766]      |
+| **MD**                | −1.514              | −1.334              | −0.116              |
+|                       | (1.162)[0.766]      | (0.886)[0.133]      | (0.943)[0.902]      |
+| **log likelihood**    | −3718.3             | −3712.3             | −3736.7             |
+| **N**                 | 1022                | 1022                | 1022                |
+
+
+Authors comments:
+
+>  Table 3 reports the estimates for three Tobit regressions where, respectively, EE, NB, and NE are regressed on dummies for the TD, MD and BDG conditions (omitted category is the case of the DG and C conditions). No estimated coefficient of these regressors is significantly different from zero, confirming that EE, NB, and NE are not affected by our experimental conditions.
+
+## Table 4. Tobit regressions of Got on experimental conditions and controls.
+
+Table 4. Tobit regressions of Got on experimental conditions and controls.
+
+|                       | (1) Baseline        | (2) Norms           | (3) Right           | (4) Intuitive       |
+|-----------------------|---------------------|---------------------|---------------------|---------------------|
+| BDG                   | −2.302**            | −2.023***           | −2.035***           | −2.027***           |
+|                       | (0.952)[0.016]      | (0.733)[0.006]      | (0.737)[0.006]      | (0.737)[0.006]      |
+| TD                    | −1.368              | −1.262              | −1.126              | −1.116              |
+|                       | (1.110)[0.218]      | (0.886)[0.155]      | (0.878)[0.200]      | (0.877)[0.204]      |
+| MD                    | −3.626***           | −2.075**            | −2.005**            | −2.038**            |
+|                       | (1.219)[0.003]      | (0.914)[0.023]      | (0.915)[0.029]      | (0.915)[0.026]      |
+| EE                    |                     | 0.371***            | 0.358***.           | 0.357***            |
+|                       |                     | (0.050)[< 0.001]    | (0.049)[< 0.001]    | (0.050)[< 0.001]    |
+| NB                    |                     | 0.776***            | 0.785***            | 0.781***            |
+|                       |                     | (0.068)[< 0.001]    | (0.068)[< 0.001]    | (0.068)[< 0.001]    |
+| NE                    |                     | −0.075              | −0.070              | −0.067              |
+|                       |                     | (0.053)[0.155]      | (0.053)[0.191]      | (0.054)[0.208]      |
+| CRT right/int         |                     |                     | 0.418**             | −0.540**            |
+|                       |                     |                     | (0.191)[0.029]      | (0.213)[0.011]      |
+| Female                |                     |                     | 0.007               | 0.075               |
+|                       |                     |                     | (0.733)[0.993]      | (0.733)[0.919]      |
+| Household income      |                     |                     | −0.010              | −0.001              |
+|                       |                     |                     | (0.100)[0.919]      | (0.099)[0.991]      |
+| log likelihood        | −3795.5             | −3521.9             | −3507.9             | −3507.1             |
+| N                     | 1022                | 1022                | 1019                | 1019                |
+
+Authors comments
+
+>  Table 4 reports the results of four Tobit regressions where, respectively, EE, NB, and NE are regressed on dummies for the TD, MD and BDG conditions (omitted category is the case of the DG and C conditions). No estimated coefficient of these regressors is significantly different from zero, confirming that EE, NB, and NE are not affected by our experimental conditions. 
+
+> In model (1), and consistently in the other three models, we find a negative and significant effect of BDG and MD on Got. 
+
+> In model (2), both EE and NB have a positive and statistically significant coefficient, while both TD and NE have a negative and not statistically significant coefficient. 
+
+> In model (3), the estimated coefficient of CRT right is positive and statistically significant, suggesting that dictators who are more inclined to reflection tend to get more. 
+
+> In model (4), the coefficient CRT int is negative and statistically significant, suggesting that dictators who are less inclined to reflection tend to get less.
+
+> Lastly, socio-demographic characteristics (sex and household income) do not seem to affect the dictator’s decision in either model.
+
+# Reproducing results - droput analyses
+
+Authors comments:
+
+> The occurrence of dropouts is one of the limitations of the online experimental setting. However, this occurrence is rare in our experiment (3.13 percent drop out from the experiment overall and only 1.80 percent during the task) and, at least to some extent, it can be ascribed to exogenous factors.
+
+# Reproducing results - Further statistical analyses
+
+## B.1 Effectiveness of cognitive manipulation (fig. 1)
+
+![](figures/b1fig1.png)
+
+Authors comments
+
+> Figure 1: Self-reported reflection is not statistically different across the treatments for the cognitive manipulations. The average of self-reported reflection in the Motivated Delay treatment (M=8.79, SD=1.85) is 0.32 points higher than that in the Control treatment (M=8.47, SD=2.05) and 0.07 points higher than that in the Time Delay treatment (M=8.72, SD=1.86).
+
+## B.1 Effectiveness of cognitive manipulation (fig. 2)
+
+![](figures/b1fig2.png)
+
+Authors comment: 
+
+> Figure 2: Subjects spent more time on the task screen in the Time Delay and Motivated Delay treatments than in the Control Treatment; and more time in the Motivated Delay treatment than in the Time Delay treatment. The average of seconds spent on the task screen in the Motivated Delay treatment (M=101.93, SD=74.71) is 26,39 seconds higher than those spent in the Time Delay (M=75.54, SD=77.37), which are in turn 44,67 seconds higher than the average of seconds spent on the task screen in the Control treatment (M= 30.87, SD= 133.71).
+
+## B.2 Multiple hypothesis adjustments
+
+Table 1: Control for multiple hypothesis testing using Benjamini and Hochberg (1995)
+
+| Dependent variable: *Got hypothesis* | (p-value) | (adjusted) |
+|--------------------------------------|-----------|------------|
+| (NB) C vs TD                         | 0.7654    | 0.7723     |
+| (NB) TD vs MD                        | 0.4206    | 0.5401     |
+| (NB) C vs MD                         | 0.2735    | 0.4103     |
+| (B) C vs TD                          | 0.7723    | 0.7723     |
+| (B) TD vs MD                         | 0.0136    | 0.0408     |
+| (B) C vs MD                          | 0.0078    | 0.0408     |
+| (C) NB vs B                          | 0.2025    | 0.3645     |
+| (TD) NB vs B                         | 0.1997    | 0.3645     |
+| (MD) NB vs B                         | 0.0095    | 0.0408     |
+
+## B.3 Regressions with self-reported attention
+
+Table 2: Tobit regressions of Got on experimental condition ’(no) bully’ and ’self-reported attention’
+
+| Got       | (1)               | (2)               |
+|-----------|-------------------|-------------------|
+| BDG       | -2.279**          | -2.053***         |
+|           | (0.962) [0.018]   | (0.738) [0.006]   |
+| ATTENTION | -0.0761           | 0.174             |
+|           | (0.298) [0.798]   | (0.222) [0.432]   |
+| EE        |                   | 0.373***          |
+|           |                   | (0.0495) [< 0.001]|
+| NB        |                   | 0.783***          |
+|           |                   | (0.0676) [< 0.001]|
+| NE        |                   | -0.0791           |
+|           |                   | (0.0529) [0.135]  |
+| N         | 1022              | 1022              |
+
+
+## B.4 Regressions by version of the dictator game
+
+Table 3: Tobit regressions of Got on experimental condition “cognitive manipulation” and norms, by version of the dictator game
+
+| Got        | (1) DG            | (2) DG            | (3) BDG         | (4) BDG         |
+|------------|-------------------|-------------------|-----------------|-----------------|
+| TD         | -0.824            | -0.858            | -1.716          | -1.699          |
+|            | (1.104) [0.456]   | (1.080) [0.427]   | (1.356) [0.206] | (1.349) [0.208] |
+| MD         | -1.801            | -14.85***         | -2.470**        | -6.854          |
+|            | (1.272) [0.157]   | (4.433) [0.001]   | (1.322) [0.062] | (7.608) [0.368] |
+| EE         | 0.371***          | 0.402***          | 0.361***        | 0.405***        |
+|            | (0.0686) [<0.001] | (0.0788) [<0.001] | (0.0676) [<0.001]| (0.0859) [<0.001]|
+| NB         | 0.910***          | 0.773***          | 0.628***        | 0.601***        |
+|            | (0.0685) [<0.001] | (0.0860) [<0.001] | (0.116) [<0.001] | (0.140) [<0.001] |
+| NE         | -0.149**          | -0.191**          | 0.00379         | -0.0514         |
+|            | (0.0575) [0.010]  | (0.0767) [0.013]  | (0.0868) [0.965]| (0.109) [0.636] |
+| MDxEE      |                   | -0.0576           |                 | -0.144          |
+|            |                   | (0.150) [0.702]   |                 | (0.130) [0.268] |
+| MDxNE      |                   | 0.0981            |                 | 0.193           |
+|            |                   | (0.112) [0.380]   |                 | (0.169) [0.255] |
+| MDxNB      |                   | 0.364***          |                 | 0.0983          |
+|            |                   | (0.133) [0.007]   |                 | (0.265) [0.711] |
+| N          | 509               | 509               | 513             | 513             |
+
+
+## B.5 Frequencies of Got by treatment and Hurdle models - figure
+
+![](figures/b5.png)
+
+Authors comment
+
+> The data reveals that there are peaks in the distribution where dictators keep everything for themselves, although these peaks are relatively low. This finding suggests that a Hurdle model may be worth considering.
+
+## B.5 Frequencies of Got by treatment and Hurdle models - table
+
+Table 4: Hurdle regressions of Give (Endowment-Got).
+
+| Got       | right             | right             | intuitive        | intuitive        |
+|-----------|-------------------|-------------------|------------------|------------------|
+|**FirstHurdle**|               |                   |                  |                  |
+| BDG       | 1.633***          | 1.687***          | 1.624***         | 1.678***         |
+|           | (0.608) [0.007]   | (0.519) [0.001]   | (0.609) [0.008]  | (0.519) [0.001]  |
+| TD        | -0.337            | -0.420            | -0.331           | -0.412           |
+|           | (0.675) [0.618]   | (0.605) [0.488]   | (0.674) [0.623]  | (0.606) [0.496]  |
+| MD        | 2.449***          | 1.406**           | 2.456***         | 1.407**          |
+|           | (0.753) [0.001]   | (0.623) [0.024]   | (0.754) [0.001]  | (0.623) [0.024]  |
+| CRT right/int | -0.391∗∗      | -0.224            | 0.377∗∗          | 0.180            |
+|           | (0.159) [0.014]   | (0.136) [0.100]   | (0.176) [0.032]  | (0.153) [0.239]  |
+| female    | -1.306**          | -1.368***         | -1.301**         | -1.348**         |
+|           | (0.608) [0.032]   | (0.530) [0.010]   | (0.609) [0.033]  | (0.536) [0.012]  |
+| household income | -0.0721    | 0.00576           | -0.0849          | -0.00228         |
+|           | (0.0838) [0.390]  | (0.0714) [0.936]  | (0.0843) [0.314] | (0.0712) [0.974] |
+| EE        |                   | -0.160***         |                  | -0.163***        |
+|           |                   | (0.0369) [<0.001] |                  | (0.0371) [<0.001]|
+| NB        |                   | -0.477***         |                  | -0.477***        |
+|           |                   | (0.0754) [<0.001] |                  | (0.0756) [<0.001]|
+| NE        |                   | -0.00869          |                  | -0.00800         |
+|           |                   | (0.0428) [0.839]  |                  | (0.0429) [0.852] |
+|**SecondHurdle**|              |                   |                  |                  |
+| BDG       | 0.128             | 0.129             | 0.127            | 0.125            |
+|           | (0.102) [0.210]   | (0.124) [0.297]   | (0.103) [0.217]  | (0.125) [0.319]  |
+| TD        | 0.194             | 0.366**           | 0.189            | 0.357**          |
+|           | (0.124) [0.118]   | (0.150) [0.015]   | (0.125) [0.131]  | (0.152) [0.019]  |
+| MD        | 0.156             | 0.186             | 0.165            | 0.193            |
+|           | (0.123) [0.203]   | (0.151) [0.216]   | (0.123) [0.181]  | (0.150) [0.199]  |
+| CRT right/int | -0.0542**     | -0.0649**         | 0.0959***        | 0.104***         |
+|           | (0.0262) [0.039]  | (0.0325) [0.046]  | (0.0303) [0.002] | (0.0364) [0.004] |
+| female    | 0.338***          | 0.298**           | 0.316***         | 0.273**          |
+|           | (0.104) [0.001]   | (0.125) [0.017]   | (0.105) [0.003]  | (0.125) [0.029]  |
+| household income | -0.00575   | 0.00287           | -0.00551         | 0.00282          |
+|           | (0.0145) [0.693]  | (0.0172) [0.867]  | (0.0145) [0.704] | (0.0171) [0.869] |
+| EE        |                   | -0.0403***        |                  | -0.0405***       |
+|           |                   | (0.00571) [<0.001]|                  | (0.00573) [<0.001]|
+| NB        |                   | -0.0613***        |                  | -0.0611***       |
+|           |                   | (0.00624) [<0.001]|                  | (0.00629) [<0.001]|
+| NE        |                   | 0.0151**          |                  | 0.0148**         |
+|           |                   | (0.00676) [0.025] |                  | (0.00686) [0.031]|
+| N         | 1019              | 1019              | 1019             | 1019             |
+
+
+## B.6 CRT types
+
+![](figures/b6.png)
+
+Authors comment
+
+> Our findings were consistent with (...), as Reflective individuals tended to allocate more for themselves. However, we did not observe any significant differences in behavior between Impulsive Dictators and the Residuals.
