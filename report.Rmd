@@ -134,6 +134,12 @@ Authors comments
 
 > Lastly, socio-demographic characteristics (sex and household income) do not seem to affect the dictator’s decision in either model.
 
+# Reproducing results - droput analyses
+
+Authors comments:
+
+> The occurrence of dropouts is one of the limitations of the online experimental setting. However, this occurrence is rare in our experiment (3.13 percent drop out from the experiment overall and only 1.80 percent during the task) and, at least to some extent, it can be ascribed to exogenous factors.
+
 # Reproducing results - Further statistical analyses
 
 ## B.1 Effectiveness of cognitive manipulation (fig. 1)
