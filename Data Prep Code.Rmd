@@ -1,0 +1,467 @@
+---
+title: "Data Prep"
+author: "Yamini Kuntal"
+date: "2024-05-31"
+output: html_document
+---
+
+```{r Loading Packages & Data}
+# For data manipulation
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(tidyr)
+library(readxl)
+library(knitr)
+
+link_to_data <- "https://osf.io/download/uh4z7/?view_only=de730bd958ef4711819216d30361c8d8"
+file_to_save <- "data_DMDDG.xls"
+
+if (!file.exists(file_to_save)) download.file(url = link_to_data, destfile = file_to_save)
+df <- read_xls(file_to_save)
+
+head(df)
+```
+
+
+```{r mapping variables, echo=FALSE}
+# Map the treatments to 'C', 'TD', and 'MD'
+df$treatment_group <- ifelse(grepl("^control", df$treatment), "C",
+                              ifelse(grepl("^delay", df$treatment), "TD", "MD"))
+
+df$game_type <- ifelse(df$bully == 0, "Standard Dictator Game", "Bully Dictator Game")
+head(df)
+
+```
+
+```{r Table 1, echo=FALSE}
+# Count occurrences of each combination of game_type and treatment_group
+count_df <- df %>% 
+  group_by(game_type, treatment_group) %>% 
+  summarise(count = n(), .groups = 'drop') %>%
+  mutate(game_type = factor(game_type, levels = c("Standard Dictator Game", "Bully Dictator Game")),
+         treatment_group = recode(treatment_group,
+                                  "C" = "Control",
+                                  "TD" = "Time Delay",
+                                  "MD" = "Motivated Delay")) %>%
+  pivot_wider(names_from = treatment_group, values_from = count, values_fill = list(count = 0)) %>%
+  arrange(desc(game_type))
+
+# Print the counts with a title
+kable(count_df, caption = "Table 1: Number of participants for each of the 3 × 2 experimental conditions.")
+```
+
+```{r Table 2, echo=FALSE}
+# Standard Dictator Game Data
+DG <- subset(df, treatment %in% c("controlNObully", "delayNObully", "motivationNObully"))
+
+# Bully Dictator Game Data
+BDG <- subset(df, !(treatment %in% c("controlNObully", "delayNObully", "motivationNObully")))
+
+# Data Preparation & Analysis
+################ Sample balance (TABLE 2) ######################
+
+variables <- c("crt_right", "crt_int", "female", "age", "household_income",
+               "children", "FT_job", "christian", "student", "democrat")
+
+# Define the type of test for each variable
+test_types <- c("Kruskal-Wallis", "Kruskal-Wallis", "Chi-squared", "Kruskal-Wallis", "Kruskal-Wallis",
+                "Chi-squared", "Chi-squared", "Chi-squared", "Chi-squared", "Chi-squared")
+
+#By MOC
+p_values_moc <- c(
+  kruskal.test(df$crt_right ~ df$moc)$p.value,
+  kruskal.test(df$crt_int ~ df$moc)$p.value,
+  chisq.test(table(df$moc, df$female))$p.value,
+  kruskal.test(df$age ~ df$moc)$p.value,
+  kruskal.test(df$household_income ~ df$moc)$p.value,
+  chisq.test(table(df$moc, df$children))$p.value,
+  chisq.test(table(df$moc, df$FT_job))$p.value,
+  chisq.test(table(df$moc, df$christian))$p.value,
+  chisq.test(table(df$moc, df$student))$p.value,
+  chisq.test(table(df$moc, df$democrat))$p.value
+)
+
+#BY Treatment
+p_values_treatment <- c(
+  kruskal.test(df$crt_right ~ df$treatment)$p.value,
+  kruskal.test(df$crt_int ~ df$treatment)$p.value,
+  chisq.test(table(df$treatment, df$female))$p.value,
+  kruskal.test(df$age ~ df$treatment)$p.value,
+  kruskal.test(df$household_income ~ df$treatment)$p.value,
+  chisq.test(table(df$treatment, df$children))$p.value,
+  chisq.test(table(df$treatment, df$FT_job))$p.value,
+  chisq.test(table(df$treatment, df$christian))$p.value,
+  chisq.test(table(df$treatment, df$student))$p.value,
+  chisq.test(table(df$treatment, df$democrat))$p.value
+)
+
+# Combine into a dataframe
+results_table <- data.frame(
+  Variables = variables,
+  Test_Type = test_types,
+  Treatment_P_Value = round(p_values_treatment, 3),
+  Moc_P_Value = round(p_values_moc, 3)
+)
+
+# Print the counts with a title
+kable(results_table, caption = "Table 2: Differences across treatments of socio-demographic characteristics.")
+```
+
+
+
+```{r Figure 2 Mean_SD, echo=FALSE}
+# Filter the dataset for the Standard Dictator Game
+standard_dictator_game_data <- df %>%
+  filter(game_type == "Standard Dictator Game") %>%
+  mutate(treatment_group = case_when(
+    moc == 0 ~ "C",
+    moc == 1 ~ "TD",
+    moc == 2 ~ "MD"
+  )) %>%
+  group_by(treatment_group) %>%
+  summarise(
+    Mean_Got = round(mean(kept, na.rm = TRUE),2),
+    SD = round(sd(kept, na.rm = TRUE),2),
+    SE = round(sd(kept, na.rm = TRUE)/sqrt(n()),2) # Standard error
+  ) %>%
+  ungroup() %>%
+  # Arrange the data in descending order and set the factor levels based on this order
+  arrange(desc(Mean_Got)) %>%
+  mutate(treatment_group = factor(treatment_group, levels = unique(treatment_group)))
+
+# Print the adjusted data
+print(standard_dictator_game_data)
+
+```
+
+```{r Figure 2 KW, echo=FALSE}
+# Explain what the Kruskal-Wallis test is applied on
+cat("Performing Kruskal-Wallis test to compare the distributions of 'kept' across different treatment groups within the Standard Dictator Game.\n")
+
+# Conduct Kruskal-Wallis test
+kruskal_test <- kruskal.test(kept ~ treatment_group, data = df %>% filter(game_type == "Standard Dictator Game"))
+
+# Store the p-value for use in the plot annotation
+p_value <- round(kruskal_test$p.value, 4)
+
+# Create an annotation text with the Kruskal-Wallis result
+annotation_text <- paste("Kruskal-Wallis, p =", p_value, ". Note. Confidence intervals on means are at 95%.")
+print(annotation_text)
+```
+
+```{r Figure 2 Plot, echo=FALSE}
+# Plot the bar graph with sorted bars
+ggplot(standard_dictator_game_data, aes(x = treatment_group, y = Mean_Got, fill = treatment_group)) +
+  geom_bar(stat = "identity", width = 0.5, alpha = 0.5) +
+  geom_errorbar(aes(ymin = Mean_Got - SE, ymax = Mean_Got + SE), width = 0.2, color = "black") +
+  scale_fill_manual(values = c("C" = "red", "TD" = "green", "MD" = "blue")) +
+  labs(title = "Figure 2: Standard Dictator Game", y = "Mean of Got", x = NULL) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
+
+```
+
+```{r Figure 3 Mean_SD, echo=FALSE}
+# Filter the dataset for the Bully Dictator Game
+bully_dictator_game_data <- df %>%
+  filter(game_type == "Bully Dictator Game") %>%
+  mutate(treatment_group = case_when(
+    moc == 0 ~ "C",
+    moc == 1 ~ "TD",
+    moc == 2 ~ "MD"
+  )) %>%
+  group_by(treatment_group) %>%
+  summarise(
+    Mean_Got = round(mean(kept, na.rm = TRUE),2),
+    SD = round(sd(kept, na.rm = TRUE),2),
+    SE = round(sd(kept, na.rm = TRUE)/sqrt(n()),2) # Standard error
+  ) %>%
+  ungroup() %>%
+  # Arrange the data in descending order and set the factor levels based on this order
+  arrange(desc(Mean_Got)) %>%
+  mutate(treatment_group = factor(treatment_group, levels = unique(treatment_group)))
+
+# Print the adjusted data
+print(bully_dictator_game_data)
+  
+```
+
+```{r Figure 3 KW, echo=FALSE}
+# Explain what the Kruskal-Wallis test is applied on
+cat("Performing Kruskal-Wallis test to compare the distributions of 'kept' across different treatment groups within the Bully Dictator Game.\n")
+
+# Conduct Kruskal-Wallis test
+kruskal_test <- kruskal.test(kept ~ treatment_group, data = df %>% filter(game_type == "Bully Dictator Game"))
+
+# Store the p-value for use in the plot annotation
+p_value <- round(kruskal_test$p.value, 4)
+
+# Create an annotation text with the Kruskal-Wallis result
+annotation_text <- paste("Kruskal-Wallis, p =", p_value, ". Note. Confidence intervals on means are at 95%.")
+print(annotation_text)
+  
+```
+
+```{r Figure 3 Plot, echo=FALSE}
+# Plot the bar graph with sorted bars
+ggplot(bully_dictator_game_data, aes(x = treatment_group, y = Mean_Got, fill = treatment_group)) +
+  geom_bar(stat = "identity", width = 0.5, alpha = 0.5) +
+  geom_errorbar(aes(ymin = Mean_Got - SE, ymax = Mean_Got + SE), width = 0.2, color = "black") +
+  scale_fill_manual(values = c("C" = "red", "TD" = "green", "MD" = "blue")) +
+  labs(title = "Figure 3: Bully Dictator Game", y = "Mean of Got", x = NULL) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
+```
+
+```{r Figure3 MW KW, echo=FALSE}
+# Perform Kruskal–Wallis test for DG
+# Testing for differences in the 'kept' variable distributions across different levels of 'moc' within the Standard Dictator Game
+kruskal_DG <- kruskal.test(kept ~ moc, data = DG)
+print("Kruskal-Wallis test for Standard Dictator Game:")
+print(kruskal_DG)
+
+# Perform Kruskal–Wallis test for BDG
+# Testing for differences in the 'kept' variable distributions across different levels of 'moc' within the Bully Dictator Game
+kruskal_BDG <- kruskal.test(kept ~ moc, data = BDG)
+print("Kruskal-Wallis test for Bully Dictator Game:")
+print(kruskal_BDG)
+
+# Perform Mann-Whitney U test for BDG choice
+group_C <- BDG[BDG$treatment_group == "C", "kept"]$kept
+group_TD <- BDG[BDG$treatment_group == "TD", "kept"]$kept
+group_MD <- BDG[BDG$treatment_group == "MD", "kept"]$kept
+
+# Perform Mann-Whitney U test between TD and MD for BDG
+# This test compares the distribution of 'kept' between TD and MD within the Bully Dictator Game
+result_TD_MD <- wilcox.test(group_TD, group_MD)
+z_value_TD_MD <- qnorm(1 - result_TD_MD$p.value / 2)  # Convert p-value to z-score
+p_value_TD_MD <- result_TD_MD$p.value
+cat(sprintf("Mann-Whitney U test for BDG between TD and MD, z = %.3f, p = %.4f.\n", z_value_TD_MD, p_value_TD_MD))
+
+# Perform Mann-Whitney U test between C and MD for BDG
+# This test compares the distribution of 'kept' between C and MD within the Bully Dictator Game
+result_C_MD <- wilcox.test(group_C, group_MD)
+z_value_C_MD <- qnorm(1 - result_C_MD$p.value / 2)
+p_value_C_MD <- result_C_MD$p.value
+cat(sprintf("Mann-Whitney U test for BDG between C and MD, z = %.3f, p = %.4f.\n", z_value_C_MD, p_value_C_MD))
+
+# Perform Mann-Whitney U test between C and TD for BDG
+# This test compares the distribution of 'kept' between C and TD within the Bully Dictator Game
+result_C_TD <- wilcox.test(group_TD, group_C)
+z_value_C_TD <- qnorm(1 - result_C_TD$p.value / 2)
+p_value_C_TD <- result_C_TD$p.value
+cat(sprintf("Mann-Whitney U test for BDG between C and TD, z = %.3f, p = %.4f.\n", z_value_C_TD, p_value_C_TD))
+
+```
+
+```{r Figure 4 mean_SD, echo=FALSE}
+# Prepare data with renaming and calculating statistics
+dictator_game_data <- df %>%
+  mutate(game_type = case_when(
+    game_type == "Standard Dictator Game" ~ "DG",
+    game_type == "Bully Dictator Game" ~ "BDG"
+  )) %>%
+  mutate(treatment_group = case_when(
+    moc == 0 ~ "C",
+    moc == 1 ~ "TD",
+    moc == 2 ~ "MD"
+  )) %>%
+  group_by(game_type, treatment_group) %>%
+  summarise(
+    Mean_Got = round(mean(kept, na.rm = TRUE), 2),
+    SD = round(sd(kept, na.rm = TRUE), 2),
+    SE = round(sd(kept, na.rm = TRUE) / sqrt(n()), 2), # Standard error
+    .groups = "drop" # Drop grouping after summarisation
+  ) %>%
+  mutate(game_type = factor(game_type, levels = c("DG", "BDG"))) %>%
+  arrange(game_type, desc(Mean_Got))
+
+# Print the adjusted data
+print(dictator_game_data)
+  
+```
+```{r Figure 4 Plot, echo=FALSE}
+# Plot the data
+ggplot(dictator_game_data, aes(x = treatment_group, y = Mean_Got, fill = game_type)) +
+  geom_bar(stat = "identity", position = position_dodge(), width = 0.7, alpha=0.9) +
+  geom_errorbar(aes(ymin = Mean_Got - SE, ymax = Mean_Got + SE),
+                position = position_dodge(0.7), width = 0.25) +
+  scale_fill_manual(values = c("DG" = "yellow", "BDG" = "grey")) +
+  labs(title = "Figure 4: Mean of Got by Treatment Group and Game Type",
+       y = "Mean of Got") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Figure 4 MW, echo=FALSE}
+# Filter data for Motivated Delay in both game types
+motivated_delay_data <- df %>%
+  filter(treatment_group == "MD" & game_type %in% c("Standard Dictator Game", "Bully Dictator Game")) %>%
+  mutate(game_type = ifelse(game_type == "Standard Dictator Game", "DG", "BDG"))
+
+# Split the data by game type
+dg_data <- motivated_delay_data %>% filter(game_type == "DG") %>% pull(kept)
+bdg_data <- motivated_delay_data %>% filter(game_type == "BDG") %>% pull(kept)
+
+# Conduct Mann-Whitney test on the filtered data
+test_result <- wilcox.test(dg_data, bdg_data)
+
+# Extracting the test statistic and p-value
+z_value <- qnorm(1 - test_result$p.value / 2)  # Convert p-value to z-score
+p_value <- test_result$p.value
+
+# Print test results, include detail on where the test is applied
+cat(sprintf("Mann–Whitney test applied between DG (Standard Dictator Game) and BDG (Bully Dictator Game) under Motivated Delay condition, z = %.3f, p = %.4f.Confidence intervals on means are at 95%%.", z_value, p_value))
+  
+```
+```{r B1 Figure 1 Plot, echo=FALSE}
+# Calculating means and standard errors for each moc/treatment_group for Attention:
+attention_means <- df %>%
+  group_by(treatment_group) %>%
+  summarise(Mean = mean(attention, na.rm = TRUE),
+            SE = sd(attention, na.rm = TRUE) / sqrt(n()))%>%
+  ungroup() %>%
+  arrange(Mean) %>%
+  mutate(treatment_group = factor(treatment_group, levels = unique(treatment_group)))
+
+# Plot the bar graph with sorted bars
+ggplot(attention_means, aes(x = treatment_group, y = Mean, fill = as.factor(treatment_group))) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE), width = 0.25) +
+  theme_minimal() +
+  labs(title = "B.1 Effectiveness of cognitive manipulation", y = "Mean of self-reported attention", x = NULL, fill="MOC")  +
+  scale_fill_manual(values = c("C" = "#1A476F", "TD" = "#90353B", "MD" = "#55752F")) +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "left")
+
+```
+
+```{r B1 Figure 1 Mean_SD, echo=FALSE}
+# Filter the dataset for the Attention
+attention_data <- df %>%
+  mutate(treatment_group = case_when(
+    moc == 0 ~ "C",
+    moc == 1 ~ "TD",
+    moc == 2 ~ "MD"
+  )) %>%
+  group_by(treatment_group) %>%
+  summarise(
+    Mean_Got = round(mean(attention, na.rm = TRUE),2),
+    SD = round(sd(attention, na.rm = TRUE),2),
+    SE = round(sd(attention, na.rm = TRUE)/sqrt(n()),2) # Standard error
+  ) %>%
+  ungroup() %>%
+  # Arrange the data in descending order and set the factor levels based on this order
+  arrange(Mean_Got) %>%
+  mutate(treatment_group = factor(treatment_group, levels = unique(treatment_group)))
+
+# Print the adjusted data
+print(attention_data)
+  
+```
+
+```{r B1 Figure 1 KW_MW, echo=FALSE}
+kruskal_attention <- kruskal.test(attention ~ moc, data = df)
+print("Kruskal-Wallis test for Attention:")
+print(kruskal_attention)
+
+# Filter data for treatment groups
+group_C <- df[df$treatment_group == "C", "attention"]$attention
+group_TD <- df[df$treatment_group == "TD", "attention"]$attention
+group_MD <- df[df$treatment_group == "MD", "attention"]$attention
+
+# Perform Mann-Whitney U test between TD and MD
+result_TD_MD <- wilcox.test(group_TD, group_MD)
+z_value_TD_MD <- qnorm(1 - result_TD_MD$p.value / 2)  # Convert p-value to z-score
+p_value_TD_MD <- result_TD_MD$p.value
+cat(sprintf("Mann-Whitney U test for attention between TD and MD, z = %.3f, p = %.4f.\n", z_value_TD_MD, p_value_TD_MD))
+
+# Perform Mann-Whitney U test between C and MD
+result_C_MD <- wilcox.test(group_C, group_MD)
+z_value_C_MD <- qnorm(1 - result_C_MD$p.value / 2)
+p_value_C_MD <- result_C_MD$p.value
+cat(sprintf("Mann-Whitney U test for attention between C and MD, z = %.3f, p = %.4f.\n", z_value_C_MD, p_value_C_MD))
+
+# Perform Mann-Whitney U test between C and TD
+result_C_TD <- wilcox.test(group_TD, group_C)
+z_value_C_TD <- qnorm(1 - result_C_TD$p.value / 2)
+p_value_C_TD <- result_C_TD$p.value
+cat(sprintf("Mann-Whitney U test for attention between C and TD, z = %.3f, p = %.4f.\n", z_value_C_TD, p_value_C_TD))
+  
+```
+```{r B1 Figure 2 Plot, echo=FALSE}
+time_spent_means <- df %>%
+  group_by(treatment_group) %>%
+  summarise(Mean = mean(seconds_on_task, na.rm = TRUE),
+            SE = sd(seconds_on_task, na.rm = TRUE) / sqrt(n()))%>%
+  ungroup() %>%
+  arrange(Mean) %>%
+  mutate(treatment_group = factor(treatment_group, levels = unique(treatment_group)))
+
+# Plotting
+ggplot(time_spent_means, aes(x = treatment_group, y = Mean, fill = as.factor(treatment_group))) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE), width = 0.25) +
+  theme_minimal() +
+  labs(title = "B.1 Effectiveness of cognitive manipulation", y = "Mean of self-reported attention", x = NULL, fill="MOC")  +
+  scale_fill_manual(values = c("C" = "#1A476F", "TD" = "#90353B", "MD" = "#55752F")) +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "left")
+
+```
+
+
+```{r B1 Figure 2 Mean_SD, echo=FALSE}
+# Filter the dataset for the seconds
+seconds_data <- df %>%
+  mutate(treatment_group = case_when(
+    moc == 0 ~ "C",
+    moc == 1 ~ "TD",
+    moc == 2 ~ "MD"
+  )) %>%
+  group_by(treatment_group) %>%
+  summarise(
+    Mean_Got = round(mean(seconds_on_task, na.rm = TRUE),2),
+    SD = round(sd(seconds_on_task, na.rm = TRUE),2),
+    SE = round(sd(seconds_on_task, na.rm = TRUE)/sqrt(n()),2) # Standard error
+  ) %>%
+  ungroup() %>%
+  # Arrange the data in descending order and set the factor levels based on this order
+  arrange(Mean_Got) %>%
+  mutate(treatment_group = factor(treatment_group, levels = unique(treatment_group)))
+
+# Print the adjusted data
+cat("Table for Mean and SD for seconds on task:\n")
+print(seconds_data)
+  
+```
+
+```{r B1 Figure 2 KW_MW, echo=FALSE}
+# Perform Kruskal–Wallis test for time spent variable
+time_spent_kruskal <- kruskal.test(seconds_on_task ~ treatment_group, data = df)
+
+# Subset the data for each treatment group
+time_spent_C <- df %>% filter(treatment_group == "C") %>% pull(seconds_on_task)
+time_spent_TD <- df %>% filter(treatment_group == "TD") %>% pull(seconds_on_task)
+time_spent_MD <- df %>% filter(treatment_group == "MD") %>% pull(seconds_on_task)
+
+# Perform Mann-Whitney U tests
+time_spent_result_TD_MD <- wilcox.test(time_spent_TD, time_spent_MD)
+time_spent_result_C_MD <- wilcox.test(time_spent_C, time_spent_MD)
+time_spent_result_C_TD <- wilcox.test(time_spent_TD, time_spent_C)
+
+# Calculate z-values using normal approximation
+z_value_TD_MD <- (time_spent_result_TD_MD$statistic - (length(time_spent_TD) * length(time_spent_MD) / 2)) / sqrt(length(time_spent_TD) * length(time_spent_MD) * (length(time_spent_TD) + length(time_spent_MD) + 1) / 12)
+z_value_C_MD <- (time_spent_result_C_MD$statistic - (length(time_spent_C) * length(time_spent_MD) / 2)) / sqrt(length(time_spent_C) * length(time_spent_MD) * (length(time_spent_C) + length(time_spent_MD) + 1) / 12)
+z_value_C_TD <- (time_spent_result_C_TD$statistic - (length(time_spent_TD) * length(time_spent_C) / 2)) / sqrt(length(time_spent_TD) * length(time_spent_C) * (length(time_spent_TD) + length(time_spent_C) + 1) / 12)
+
+# Print the results
+cat("Kruskal-Wallis Test for seconds on task:\n")
+print(time_spent_kruskal)
+cat("\nMann-Whitney U Test Results and Z-values:\n")
+cat("TD vs MD for seconds on task: W =", time_spent_result_TD_MD$statistic, ", p =", time_spent_result_TD_MD$p.value, ", z =", z_value_TD_MD, "\n")
+cat("C vs MD for seconds on task: W =", time_spent_result_C_MD$statistic, ", p =", time_spent_result_C_MD$p.value, ", z =", z_value_C_MD, "\n")
+cat("C vs TD for seconds on task: W =", time_spent_result_C_TD$statistic, ", p =", time_spent_result_C_TD$p.value, ", z =", z_value_C_TD, "\n")
+
+  
+```
+
