@@ -9,47 +9,205 @@ output:
 
 # Introduction
 
+
+
 # Data preparation
+
+```{r Loading Packages & Data}
+# For data manipulation
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(tidyr)
+library(readxl)
+library(knitr)
+
+link_to_data <- "https://osf.io/download/uh4z7/?view_only=de730bd958ef4711819216d30361c8d8"
+file_to_save <- "data_DMDDG.xls"
+
+if (!file.exists(file_to_save)) download.file(url = link_to_data, destfile = file_to_save)
+df <- read_xls(file_to_save)
+
+head(df)
+```
 
 # Reproducing results - main article
 
-## Table 1. Number of participants for each of the 3 × 2 experimental conditions.
+## Table 1. Number of participants for each of the 3 × 2 experimental conditions (Research Paper)
 
 Table 1. Number of participants for each of the 3 × 2 experimental conditions.
 
-|                        | Control          | Time Delay         | Motivated Delay  |
-|------------------------|------------------|--------------------|------------------|
-| **Standard Dictator Game** | DG-C (N=174) | DG-TD (N=169)      | DG-MD (N=166)    |
-| **Bully Dictator Game**    | BDG-C (N=176)| BDG-TD (N=174)     | BDG-MD (N=163)   |
+|                            | Control       | Time Delay     | Motivated Delay |
+|--------------------|-----------------|-----------------|-----------------|
+| **Standard Dictator Game** | DG-C (N=174)  | DG-TD (N=169)  | DG-MD (N=166)   |
+| **Bully Dictator Game**    | BDG-C (N=176) | BDG-TD (N=174) | BDG-MD (N=163)  |
 
-## Table 2. Differences across treatments of socio-demographic characteristics.
+## Table 1. Number of participants for each of the 3 × 2 experimental conditions (Reproducible Results)
+```{r mapping variables, echo=FALSE}
+# Map the treatments to 'C', 'TD', and 'MD'
+df$treatment_group <- ifelse(grepl("^control", df$treatment), "C",
+                              ifelse(grepl("^delay", df$treatment), "TD", "MD"))
+
+df$game_type <- ifelse(df$bully == 0, "Standard Dictator Game", "Bully Dictator Game")
+
+# Count occurrences of each combination of game_type and treatment_group
+count_df <- df %>% 
+  group_by(game_type, treatment_group) %>% 
+  summarise(count = n(), .groups = 'drop') %>%
+  mutate(game_type = factor(game_type, levels = c("Standard Dictator Game", "Bully Dictator Game")),
+         treatment_group = recode(treatment_group,
+                                  "C" = "Control",
+                                  "TD" = "Time Delay",
+                                  "MD" = "Motivated Delay")) %>%
+  pivot_wider(names_from = treatment_group, values_from = count, values_fill = list(count = 0)) %>%
+  arrange(game_type)
+
+# Print the counts with a title
+kable(count_df, caption = "Table 1: Number of participants for each of the 3 × 2 experimental conditions.")
+
+```
+
+### Table 1 results match between the research paper and reproducible code 
+
+
+## Table 2. Differences across treatments of socio-demographic characteristics(Research Paper)
 
 Table 2. Differences across treatments of socio-demographic characteristics.
 
-| Variable           | Test           | p (by treatment) | p (by cogn. manip.) |
-|--------------------|----------------|------------------|---------------------|
-| CRT right          | Kruskal–Wallis | 0.272            | 0.378               |
-| CRT int            | Kruskal–Wallis | 0.221            | 0.280               |
-| Female             | $\chi^2$.      | 0.527            | 0.488               |
-| Age                | Kruskal–Wallis | 0.510            | 0.545               |
-| Household income   | Kruskal–Wallis | 0.286            | 0.404               |
-| Children           | $\chi^2$       | 0.821            | 0.669               |
-| Full time job      | $\chi^2$       | 0.171            | 0.688               |
-| Christian          | $\chi^2$       | 0.339            | 0.518               |
-| Student            | $\chi^2$       | 0.994            | 0.913               |
-| Democrat           | $\chi^2$       | 0.549            | 0.398               |
+| Variable         | Test           | p (by treatment) | p (by cogn. manip.) |
+|------------------|----------------|------------------|---------------------|
+| CRT right        | Kruskal–Wallis | 0.272            | 0.378               |
+| CRT int          | Kruskal–Wallis | 0.221            | 0.280               |
+| Female           | $\chi^2$.      | 0.527            | 0.488               |
+| Age              | Kruskal–Wallis | 0.510            | 0.545               |
+| Household income | Kruskal–Wallis | 0.286            | 0.404               |
+| Children         | $\chi^2$       | 0.821            | 0.669               |
+| Full time job    | $\chi^2$       | 0.171            | 0.688               |
+| Christian        | $\chi^2$       | 0.339            | 0.518               |
+| Student          | $\chi^2$       | 0.994            | 0.913               |
+| Democrat         | $\chi^2$       | 0.549            | 0.398               |
 
 
+## Table 2. Differences across treatments of socio-demographic characteristics (Reproducible Results)
+```{r Table 2, echo=FALSE}
+# Standard Dictator Game Data
+DG <- subset(df, treatment %in% c("controlNObully", "delayNObully", "motivationNObully"))
 
-## Figure 2
+# Bully Dictator Game Data
+BDG <- subset(df, !(treatment %in% c("controlNObully", "delayNObully", "motivationNObully")))
+
+# Data Preparation & Analysis
+################ Sample balance (TABLE 2) ######################
+
+variables <- c("crt_right", "crt_int", "female", "age", "household_income",
+               "children", "FT_job", "christian", "student", "democrat")
+
+# Define the type of test for each variable
+test_types <- c("Kruskal-Wallis", "Kruskal-Wallis", "Chi-squared", "Kruskal-Wallis", "Kruskal-Wallis",
+                "Chi-squared", "Chi-squared", "Chi-squared", "Chi-squared", "Chi-squared")
+
+#By MOC
+p_values_moc <- c(
+  kruskal.test(df$crt_right ~ df$moc)$p.value,
+  kruskal.test(df$crt_int ~ df$moc)$p.value,
+  chisq.test(table(df$moc, df$female))$p.value,
+  kruskal.test(df$age ~ df$moc)$p.value,
+  kruskal.test(df$household_income ~ df$moc)$p.value,
+  chisq.test(table(df$moc, df$children))$p.value,
+  chisq.test(table(df$moc, df$FT_job))$p.value,
+  chisq.test(table(df$moc, df$christian))$p.value,
+  chisq.test(table(df$moc, df$student))$p.value,
+  chisq.test(table(df$moc, df$democrat))$p.value
+)
+
+#BY Treatment
+p_values_treatment <- c(
+  kruskal.test(df$crt_right ~ df$treatment)$p.value,
+  kruskal.test(df$crt_int ~ df$treatment)$p.value,
+  chisq.test(table(df$treatment, df$female))$p.value,
+  kruskal.test(df$age ~ df$treatment)$p.value,
+  kruskal.test(df$household_income ~ df$treatment)$p.value,
+  chisq.test(table(df$treatment, df$children))$p.value,
+  chisq.test(table(df$treatment, df$FT_job))$p.value,
+  chisq.test(table(df$treatment, df$christian))$p.value,
+  chisq.test(table(df$treatment, df$student))$p.value,
+  chisq.test(table(df$treatment, df$democrat))$p.value
+)
+
+# Combine into a dataframe
+results_table <- data.frame(
+  Variables = variables,
+  Test_Type = test_types,
+  Treatment_P_Value = round(p_values_treatment, 3),
+  Moc_P_Value = round(p_values_moc, 3)
+)
+
+# Print the counts with a title
+kable(results_table, caption = "Table 2: Differences across treatments of socio-demographic characteristics.")
+```
+
+### Table 2 results match between the research paper and reproducible code
+
+## Figure 2 Research Paper
 
 ![](https://ars.els-cdn.com/content/image/1-s2.0-S2214804323001325-gr2_lrg.jpg)
 
 Authors comments:
 
-> Fig. 2. In the Standard Dictator Game, the amount got by the dictators does not differ significantly under the different cognitive manipulations and the control treatment. There is no statistically significant difference among the average of money got by the dictators in the Control (M = 36.09, SD = 12.01), the Time Delay (M  = 35.32, SD = 11.23), and the Motivated Delay (M = 33.61, SD = 15.45) treatments (Kruskal–Wallis, p = 0.5204).
+> Fig. 2. In the Standard Dictator Game, the amount got by the dictators does not differ significantly under the different cognitive manipulations and the control treatment. There is no statistically significant difference among the average of money got by the dictators in the Control (M = 36.09, SD = 12.01), the Time Delay (M = 35.32, SD = 11.23), and the Motivated Delay (M = 33.61, SD = 15.45) treatments (Kruskal–Wallis, p = 0.5204).
 
-## Figure 3
+## Figure 2 Reproducible Results
+
+```{r Figure 2 Plot, echo=FALSE}
+# Filter the dataset for the Standard Dictator Game
+standard_dictator_game_data <- df %>%
+  filter(game_type == "Standard Dictator Game") %>%
+  group_by(treatment_group) %>%
+  summarise(
+    Mean = mean(kept, na.rm = TRUE),
+    SD = round(sd(kept, na.rm = TRUE),2),
+    SE = sd(kept, na.rm = TRUE) / sqrt(n()) # Standard error
+  ) %>%
+  ungroup() %>%
+  arrange(desc(Mean)) %>%
+  mutate(treatment_group = factor(treatment_group, levels = unique(treatment_group)))
+
+# Plot the bar graph with sorted bars
+ggplot(standard_dictator_game_data, aes(x = treatment_group, y = Mean, fill = treatment_group)) +
+  geom_bar(stat = "identity", width = 0.5, alpha = 0.5) +
+  geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE), width = 0.2, color = "black") +
+  scale_fill_manual(values = c("C" = "red", "TD" = "green", "MD" = "blue")) +
+  labs(title = "Figure 2: Standard Dictator Game", y = "Mean of Got", x = NULL) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
+
+```
+
+```{r Figure 2 Mean_SD, echo=FALSE}
+# Explain what the Kruskal-Wallis test is applied on
+cat("Mean and SD for the distributions of 'kept' across different treatment groups within the Standard Dictator Game.\n")
+# Print the adjusted data
+print(standard_dictator_game_data)
+```
+
+```{r Figure 2 KW, echo=FALSE}
+# Explain what the Kruskal-Wallis test is applied on
+cat("Performing Kruskal-Wallis test to compare the distributions of 'kept' across different treatment groups within the Standard Dictator Game.\n")
+
+# Conduct Kruskal-Wallis test
+kruskal_test <- kruskal.test(kept ~ treatment_group, data = df %>% filter(game_type == "Standard Dictator Game"))
+
+# Store the p-value for use in the plot annotation
+p_value <- round(kruskal_test$p.value, 4)
+
+# Create an annotation text with the Kruskal-Wallis result
+annotation_text <- paste("Kruskal-Wallis, p =", p_value, ". Note. Confidence intervals on means are at 95%.")
+print(annotation_text)
+```
+
+### Figure 2 and its results match between the research paper and reproducible code
+
+## Figure 3 Research Paper
 
 ![](https://ars.els-cdn.com/content/image/1-s2.0-S2214804323001325-gr3_lrg.jpg)
 
@@ -57,13 +215,147 @@ Authors comments:
 
 > Fig. 3. In the Bully Dictator Game, the dictators get the lowest amount under motivated delay. The average amount of money the dictators got in the Motivated delay treatment (M = 30.80, SD = 12.22) is lower than in the Time Delay treatment (M = 33.28, SD = 12.91), and lower than the amount of money got by the dictators in the Control treatment (M = 34.54, SD = 13.17). Statistically significant differences are observed among the TD, MD, and C treatments (Kruskal–Wallis, p = 0.0145). Pairwise comparisons reveal that the MD treatment has a significantly lower average Got level compared to both TD (Mann–Whitney test, $z = 2.467$, $p = 0.0136$) and C treatments (Mann–Whitney test, $z = 2.659$, $p = 0.0078$), while no significant difference is found between the TD and C treatments (Mann–Whitney test, $z = 0.289$, $p = 0.7723$). Note. Confidence intervals on means are at 95%.
 
-## Figure 4
+## Figure 3 Reproducible Results
+
+```{r Figure 3 Plot, echo=FALSE}
+# Filter the dataset for the Bully Dictator Game
+bully_dictator_game_data <- df %>%
+  filter(game_type == "Bully Dictator Game") %>%
+  group_by(treatment_group) %>%
+  summarise(
+    Mean = mean(kept, na.rm = TRUE),
+    SD = round(sd(kept, na.rm = TRUE),2),
+    SE = sd(kept, na.rm = TRUE) / sqrt(n()) # Standard error
+  ) %>%
+  ungroup() %>%
+  arrange(desc(Mean)) %>%
+  mutate(treatment_group = factor(treatment_group, levels = unique(treatment_group)))
+
+# Plot the bar graph with sorted bars
+ggplot(standard_dictator_game_data, aes(x = treatment_group, y = Mean, fill = treatment_group)) +
+  geom_bar(stat = "identity", width = 0.5, alpha = 0.5) +
+  geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE), width = 0.2, color = "black") +
+  scale_fill_manual(values = c("C" = "red", "TD" = "green", "MD" = "blue")) +
+  labs(title = "Figure 2: Bully Dictator Game", y = "Mean of Got", x = NULL) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
+
+```
+
+```{r Figure 3 Mean_SD, echo=FALSE}
+# Explain what the Kruskal-Wallis test is applied on
+cat("Mean and SD for the distributions of 'kept' across different treatment groups within the Bully Dictator Game.\n")
+# Print the adjusted data
+print(bully_dictator_game_data)
+```
+
+```{r Figure 3 KW, echo=FALSE}
+# Perform Kruskal–Wallis test for BDG
+# Testing for differences in the 'kept' variable distributions across different levels of 'moc' within the Bully Dictator Game
+kruskal_BDG <- kruskal.test(kept ~ moc, data = BDG)
+print("Kruskal-Wallis test for Bully Dictator Game:")
+print(kruskal_BDG)
+
+# Perform Mann-Whitney U test for BDG choice
+group_C <- BDG[BDG$treatment_group == "C", "kept"]$kept
+group_TD <- BDG[BDG$treatment_group == "TD", "kept"]$kept
+group_MD <- BDG[BDG$treatment_group == "MD", "kept"]$kept
+
+# Perform Mann-Whitney U test between TD and MD for BDG
+# This test compares the distribution of 'kept' between TD and MD within the Bully Dictator Game
+result_TD_MD <- wilcox.test(group_TD, group_MD)
+z_value_TD_MD <- qnorm(1 - result_TD_MD$p.value / 2)  # Convert p-value to z-score
+p_value_TD_MD <- result_TD_MD$p.value
+cat(sprintf("Mann-Whitney U test for BDG between TD and MD, z = %.3f, p = %.4f.\n", z_value_TD_MD, p_value_TD_MD))
+
+# Perform Mann-Whitney U test between C and MD for BDG
+# This test compares the distribution of 'kept' between C and MD within the Bully Dictator Game
+result_C_MD <- wilcox.test(group_C, group_MD)
+z_value_C_MD <- qnorm(1 - result_C_MD$p.value / 2)
+p_value_C_MD <- result_C_MD$p.value
+cat(sprintf("Mann-Whitney U test for BDG between C and MD, z = %.3f, p = %.4f.\n", z_value_C_MD, p_value_C_MD))
+
+# Perform Mann-Whitney U test between C and TD for BDG
+# This test compares the distribution of 'kept' between C and TD within the Bully Dictator Game
+result_C_TD <- wilcox.test(group_TD, group_C)
+z_value_C_TD <- qnorm(1 - result_C_TD$p.value / 2)
+p_value_C_TD <- result_C_TD$p.value
+cat(sprintf("Mann-Whitney U test for BDG between C and TD, z = %.3f, p = %.4f.\n", z_value_C_TD, p_value_C_TD))
+
+```
+
+### Figure 3 and its results match between the research paper and reproducible code
+
+## Figure 4 Research Paper
 
 ![](https://ars.els-cdn.com/content/image/1-s2.0-S2214804323001325-gr4_lrg.jpg)
 
 Authors comments:
 
-> Fig. 4. The amount got by the dictator in the Bully Dictator game is consistently lower than that in the standard Dictator game, but only under Motivated Delay the difference is statistically significant. The average amount the dictator got under Motivated Delay is lower in the Bully variant of the dictator game (M = 30.80, SD = 12.22) than in the standard one (M = 33.61, SD = 15.46). The average amount the dictator got under Time Delay is lower in the Bully variant of the Dictator game (M  = 33.28, SD = 12.9) than in the standard one (M = 35.33, SD = 11.24). The average amount the dictator got in the Control treatment is lower in the Bully variant of the dictator game (M = 34.54, SD = 13.17) than in the standard one (M = 36.09, SD = 12.01). However, the difference between the two variants of the dictator game is statistically significant only in the case of Motivated Delay (Mann–Whitney test, $z= 2.595$, $p = 0.0095$).
+> Fig. 4. The amount got by the dictator in the Bully Dictator game is consistently lower than that in the standard Dictator game, but only under Motivated Delay the difference is statistically significant. The average amount the dictator got under Motivated Delay is lower in the Bully variant of the dictator game (M = 30.80, SD = 12.22) than in the standard one (M = 33.61, SD = 15.46). The average amount the dictator got under Time Delay is lower in the Bully variant of the Dictator game (M = 33.28, SD = 12.9) than in the standard one (M = 35.33, SD = 11.24). The average amount the dictator got in the Control treatment is lower in the Bully variant of the dictator game (M = 34.54, SD = 13.17) than in the standard one (M = 36.09, SD = 12.01). However, the difference between the two variants of the dictator game is statistically significant only in the case of Motivated Delay (Mann–Whitney test, $z= 2.595$, $p = 0.0095$).
+
+## Figure 4 Reproducible Results
+
+```{r Figure 4 Plot, echo=FALSE}
+# Filter the dataset for the Bully Dictator Game
+dictator_game_data <- df %>%
+  mutate(game_type = case_when(
+    game_type == "Standard Dictator Game" ~ "DG",
+    game_type == "Bully Dictator Game" ~ "BDG"
+  )) %>%
+  group_by(game_type, treatment_group) %>%
+  summarise(
+    Mean = round(mean(kept, na.rm = TRUE), 2),
+    SD = round(sd(kept, na.rm = TRUE), 2),
+    SE = round(sd(kept, na.rm = TRUE) / sqrt(n()), 2), # Standard error
+    .groups = "drop" # Drop grouping after summarisation
+  ) %>%
+  mutate(game_type = factor(game_type, levels = c("DG", "BDG"))) %>%
+  arrange(game_type, desc(Mean))
+
+# Plot the data
+ggplot(dictator_game_data, aes(x = treatment_group, y = Mean, fill = game_type)) +
+  geom_bar(stat = "identity", position = position_dodge(), width = 0.7, alpha=0.9) +
+  geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE),
+                position = position_dodge(0.7), width = 0.25) +
+  scale_fill_manual(values = c("DG" = "yellow", "BDG" = "grey")) +
+  labs(title = "Figure 4: Mean of Got by Treatment Group and Game Type",
+       y = "Mean of Got") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r Figure 4 Mean_SD, echo=FALSE}
+# Explain what the Kruskal-Wallis test is applied on
+cat("Mean and SD for the distributions of 'kept' across different treatment groups within the Dictator Game.\n")
+# Print the adjusted data
+print(dictator_game_data)
+```
+
+```{r Figure 4 MW, echo=FALSE}
+# Filter data for Motivated Delay in both game types
+motivated_delay_data <- df %>%
+  filter(treatment_group == "MD" & game_type %in% c("Standard Dictator Game", "Bully Dictator Game")) %>%
+  mutate(game_type = ifelse(game_type == "Standard Dictator Game", "DG", "BDG"))
+
+# Split the data by game type
+dg_data <- motivated_delay_data %>% filter(game_type == "DG") %>% pull(kept)
+bdg_data <- motivated_delay_data %>% filter(game_type == "BDG") %>% pull(kept)
+
+# Conduct Mann-Whitney test on the filtered data
+test_result <- wilcox.test(dg_data, bdg_data)
+
+# Extracting the test statistic and p-value
+z_value <- qnorm(1 - test_result$p.value / 2)  # Convert p-value to z-score
+p_value <- test_result$p.value
+
+# Print test results, include detail on where the test is applied
+cat(sprintf("Mann–Whitney test applied between DG (Standard Dictator Game) and BDG (Bully Dictator Game) under Motivated Delay condition, z = %.3f, p = %.4f.Confidence intervals on means are at 95%%.", z_value, p_value))
+  
+```
+
+### Figure 4 and its results match between the research paper and reproducible code
 
 ## Figure 5
 
@@ -71,64 +363,63 @@ Authors comments:
 
 Authors comment:
 
-> Fig. 5. The elicited norms (a) do not differ under the different cognitive manipulations and the control, (b) do not differ between the standard and the Bully Dictator Game The difference in the means of Empirical Expectations (EE), Normative Beliefs (NB) and Normative Expectations (NE) are not statistically significant neither with respect to cognitive manipulations nor to variants of the dictator game. We only note a mild effect of the cognitive manipulation on NB. EE: C vs TD vs MD, Kruskal–Wallis, $p =  0.3995$; DG vs BDG: Mann–Whitney test, $p =  0.9215$. NB: C vs TD vs MD, Kruskal–Wallis, $p =  0.0789$; DG vs BDG: Mann–Whitney test, $p =  0.4578$. NB: C vs TD vs MD, Kruskal–Wallis, $p =  0.7893$; DG vs BDG: Mann–Whitney test, $p =  0.9358$. 
+> Fig. 5. The elicited norms (a) do not differ under the different cognitive manipulations and the control, (b) do not differ between the standard and the Bully Dictator Game The difference in the means of Empirical Expectations (EE), Normative Beliefs (NB) and Normative Expectations (NE) are not statistically significant neither with respect to cognitive manipulations nor to variants of the dictator game. We only note a mild effect of the cognitive manipulation on NB. EE: C vs TD vs MD, Kruskal–Wallis, $p =  0.3995$; DG vs BDG: Mann–Whitney test, $p =  0.9215$. NB: C vs TD vs MD, Kruskal–Wallis, $p =  0.0789$; DG vs BDG: Mann–Whitney test, $p =  0.4578$. NB: C vs TD vs MD, Kruskal–Wallis, $p =  0.7893$; DG vs BDG: Mann–Whitney test, $p =  0.9358$.
 
 ## Table 3. Tobit regressions of elicited norms on experimental conditions.
 
 Table 3. Tobit regressions of elicited norms on experimental conditions.
 
-|                       | (1) EE              | (2) NB              | (3) NE              |
-|-----------------------|---------------------|---------------------|---------------------|
-| **BDG**               | 0.0693              | −0.399              | −0.0731             |
-|                       | (0.925)[0.940]      | (0.716)[0.578]      | (0.757)[0.923]      |
-| **TD**                | −0.256              | 0.179               | −0.267              |
-|                       | (1.106)[0.817]      | (0.844)[0.832]      | (0.898)[0.766]      |
-| **MD**                | −1.514              | −1.334              | −0.116              |
-|                       | (1.162)[0.766]      | (0.886)[0.133]      | (0.943)[0.902]      |
-| **log likelihood**    | −3718.3             | −3712.3             | −3736.7             |
-| **N**                 | 1022                | 1022                | 1022                |
-
+|                    | (1) EE         | (2) NB         | (3) NE         |
+|--------------------|----------------|----------------|----------------|
+| **BDG**            | 0.0693         | −0.399         | −0.0731        |
+|                    | (0.925)[0.940] | (0.716)[0.578] | (0.757)[0.923] |
+| **TD**             | −0.256         | 0.179          | −0.267         |
+|                    | (1.106)[0.817] | (0.844)[0.832] | (0.898)[0.766] |
+| **MD**             | −1.514         | −1.334         | −0.116         |
+|                    | (1.162)[0.766] | (0.886)[0.133] | (0.943)[0.902] |
+| **log likelihood** | −3718.3        | −3712.3        | −3736.7        |
+| **N**              | 1022           | 1022           | 1022           |
 
 Authors comments:
 
->  Table 3 reports the estimates for three Tobit regressions where, respectively, EE, NB, and NE are regressed on dummies for the TD, MD and BDG conditions (omitted category is the case of the DG and C conditions). No estimated coefficient of these regressors is significantly different from zero, confirming that EE, NB, and NE are not affected by our experimental conditions.
+> Table 3 reports the estimates for three Tobit regressions where, respectively, EE, NB, and NE are regressed on dummies for the TD, MD and BDG conditions (omitted category is the case of the DG and C conditions). No estimated coefficient of these regressors is significantly different from zero, confirming that EE, NB, and NE are not affected by our experimental conditions.
 
 ## Table 4. Tobit regressions of Got on experimental conditions and controls.
 
 Table 4. Tobit regressions of Got on experimental conditions and controls.
 
-|                       | (1) Baseline        | (2) Norms           | (3) Right           | (4) Intuitive       |
-|-----------------------|---------------------|---------------------|---------------------|---------------------|
-| BDG                   | −2.302**            | −2.023***           | −2.035***           | −2.027***           |
-|                       | (0.952)[0.016]      | (0.733)[0.006]      | (0.737)[0.006]      | (0.737)[0.006]      |
-| TD                    | −1.368              | −1.262              | −1.126              | −1.116              |
-|                       | (1.110)[0.218]      | (0.886)[0.155]      | (0.878)[0.200]      | (0.877)[0.204]      |
-| MD                    | −3.626***           | −2.075**            | −2.005**            | −2.038**            |
-|                       | (1.219)[0.003]      | (0.914)[0.023]      | (0.915)[0.029]      | (0.915)[0.026]      |
-| EE                    |                     | 0.371***            | 0.358***.           | 0.357***            |
-|                       |                     | (0.050)[< 0.001]    | (0.049)[< 0.001]    | (0.050)[< 0.001]    |
-| NB                    |                     | 0.776***            | 0.785***            | 0.781***            |
-|                       |                     | (0.068)[< 0.001]    | (0.068)[< 0.001]    | (0.068)[< 0.001]    |
-| NE                    |                     | −0.075              | −0.070              | −0.067              |
-|                       |                     | (0.053)[0.155]      | (0.053)[0.191]      | (0.054)[0.208]      |
-| CRT right/int         |                     |                     | 0.418**             | −0.540**            |
-|                       |                     |                     | (0.191)[0.029]      | (0.213)[0.011]      |
-| Female                |                     |                     | 0.007               | 0.075               |
-|                       |                     |                     | (0.733)[0.993]      | (0.733)[0.919]      |
-| Household income      |                     |                     | −0.010              | −0.001              |
-|                       |                     |                     | (0.100)[0.919]      | (0.099)[0.991]      |
-| log likelihood        | −3795.5             | −3521.9             | −3507.9             | −3507.1             |
-| N                     | 1022                | 1022                | 1019                | 1019                |
+|                  | (1) Baseline   | (2) Norms         | (3) Right         | (4) Intuitive     |
+|---------------|---------------|---------------|---------------|---------------|
+| BDG              | −2.302\*\*     | −2.023\*\*\*      | −2.035\*\*\*      | −2.027\*\*\*      |
+|                  | (0.952)[0.016] | (0.733)[0.006]    | (0.737)[0.006]    | (0.737)[0.006]    |
+| TD               | −1.368         | −1.262            | −1.126            | −1.116            |
+|                  | (1.110)[0.218] | (0.886)[0.155]    | (0.878)[0.200]    | (0.877)[0.204]    |
+| MD               | −3.626\*\*\*   | −2.075\*\*        | −2.005\*\*        | −2.038\*\*        |
+|                  | (1.219)[0.003] | (0.914)[0.023]    | (0.915)[0.029]    | (0.915)[0.026]    |
+| EE               |                | 0.371\*\*\*       | 0.358\*\*\*.      | 0.357\*\*\*       |
+|                  |                | (0.050)[\< 0.001] | (0.049)[\< 0.001] | (0.050)[\< 0.001] |
+| NB               |                | 0.776\*\*\*       | 0.785\*\*\*       | 0.781\*\*\*       |
+|                  |                | (0.068)[\< 0.001] | (0.068)[\< 0.001] | (0.068)[\< 0.001] |
+| NE               |                | −0.075            | −0.070            | −0.067            |
+|                  |                | (0.053)[0.155]    | (0.053)[0.191]    | (0.054)[0.208]    |
+| CRT right/int    |                |                   | 0.418\*\*         | −0.540\*\*        |
+|                  |                |                   | (0.191)[0.029]    | (0.213)[0.011]    |
+| Female           |                |                   | 0.007             | 0.075             |
+|                  |                |                   | (0.733)[0.993]    | (0.733)[0.919]    |
+| Household income |                |                   | −0.010            | −0.001            |
+|                  |                |                   | (0.100)[0.919]    | (0.099)[0.991]    |
+| log likelihood   | −3795.5        | −3521.9           | −3507.9           | −3507.1           |
+| N                | 1022           | 1022              | 1019              | 1019              |
 
 Authors comments
 
->  Table 4 reports the results of four Tobit regressions where, respectively, EE, NB, and NE are regressed on dummies for the TD, MD and BDG conditions (omitted category is the case of the DG and C conditions). No estimated coefficient of these regressors is significantly different from zero, confirming that EE, NB, and NE are not affected by our experimental conditions. 
+> Table 4 reports the results of four Tobit regressions where, respectively, EE, NB, and NE are regressed on dummies for the TD, MD and BDG conditions (omitted category is the case of the DG and C conditions). No estimated coefficient of these regressors is significantly different from zero, confirming that EE, NB, and NE are not affected by our experimental conditions.
 
-> In model (1), and consistently in the other three models, we find a negative and significant effect of BDG and MD on Got. 
+> In model (1), and consistently in the other three models, we find a negative and significant effect of BDG and MD on Got.
 
-> In model (2), both EE and NB have a positive and statistically significant coefficient, while both TD and NE have a negative and not statistically significant coefficient. 
+> In model (2), both EE and NB have a positive and statistically significant coefficient, while both TD and NE have a negative and not statistically significant coefficient.
 
-> In model (3), the estimated coefficient of CRT right is positive and statistically significant, suggesting that dictators who are more inclined to reflection tend to get more. 
+> In model (3), the estimated coefficient of CRT right is positive and statistically significant, suggesting that dictators who are more inclined to reflection tend to get more.
 
 > In model (4), the coefficient CRT int is negative and statistically significant, suggesting that dictators who are less inclined to reflection tend to get less.
 
@@ -142,7 +433,7 @@ Authors comments:
 
 # Reproducing results - Further statistical analyses
 
-## B.1 Effectiveness of cognitive manipulation (fig. 1)
+## B.1 Effectiveness of cognitive manipulation (fig. 1) (Research Paper)
 
 ![](figures/b1fig1.png)
 
@@ -150,13 +441,170 @@ Authors comments
 
 > Figure 1: Self-reported reflection is not statistically different across the treatments for the cognitive manipulations. The average of self-reported reflection in the Motivated Delay treatment (M=8.79, SD=1.85) is 0.32 points higher than that in the Control treatment (M=8.47, SD=2.05) and 0.07 points higher than that in the Time Delay treatment (M=8.72, SD=1.86).
 
-## B.1 Effectiveness of cognitive manipulation (fig. 2)
+## B.1 Effectiveness of cognitive manipulation (fig. 1) (Reproducible Results)
+
+```{r B1 Figure 1 Plot, echo=FALSE}
+# Calculating means and standard errors for each moc/treatment_group for Attention:
+attention_means <- df %>%
+  group_by(treatment_group) %>%
+  summarise(Mean = mean(attention, na.rm = TRUE),
+            SE = sd(attention, na.rm = TRUE) / sqrt(n()))%>%
+  ungroup() %>%
+  arrange(Mean) %>%
+  mutate(treatment_group = factor(treatment_group, levels = unique(treatment_group)))
+
+# Plot the bar graph with sorted bars
+ggplot(attention_means, aes(x = treatment_group, y = Mean, fill = as.factor(treatment_group))) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE), width = 0.25) +
+  theme_minimal() +
+  labs(title = "B.1 Effectiveness of cognitive manipulation (Figure 1)", y = "Mean of self-reported attention", x = NULL, fill="")  +
+  scale_fill_manual(values = c("C" = "#1A476F", "TD" = "#90353B", "MD" = "#55752F")) +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "top")
+
+```
+
+```{r B1 Figure 1 Mean_SD, echo=FALSE}
+# Filter the dataset for the Attention
+attention_data <- df %>%
+  mutate(treatment_group = case_when(
+    moc == 0 ~ "C",
+    moc == 1 ~ "TD",
+    moc == 2 ~ "MD"
+  )) %>%
+  group_by(treatment_group) %>%
+  summarise(
+    Mean_Got = round(mean(attention, na.rm = TRUE),2),
+    SD = round(sd(attention, na.rm = TRUE),2),
+    SE = round(sd(attention, na.rm = TRUE)/sqrt(n()),2) # Standard error
+  ) %>%
+  ungroup() %>%
+  # Arrange the data in descending order and set the factor levels based on this order
+  arrange(Mean_Got) %>%
+  mutate(treatment_group = factor(treatment_group, levels = unique(treatment_group)))
+
+# Print the adjusted data
+print(attention_data)
+  
+```
+
+```{r B1 Figure 1 KW_MW, echo=FALSE}
+kruskal_attention <- kruskal.test(attention ~ moc, data = df)
+print("Kruskal-Wallis test for Attention:")
+print(kruskal_attention)
+
+# Filter data for treatment groups
+group_C <- df[df$treatment_group == "C", "attention"]$attention
+group_TD <- df[df$treatment_group == "TD", "attention"]$attention
+group_MD <- df[df$treatment_group == "MD", "attention"]$attention
+
+# Perform Mann-Whitney U test between TD and MD
+result_TD_MD <- wilcox.test(group_TD, group_MD)
+z_value_TD_MD <- qnorm(1 - result_TD_MD$p.value / 2)  # Convert p-value to z-score
+p_value_TD_MD <- result_TD_MD$p.value
+cat(sprintf("Mann-Whitney U test for attention between TD and MD, z = %.3f, p = %.4f.\n", z_value_TD_MD, p_value_TD_MD))
+
+# Perform Mann-Whitney U test between C and MD
+result_C_MD <- wilcox.test(group_C, group_MD)
+z_value_C_MD <- qnorm(1 - result_C_MD$p.value / 2)
+p_value_C_MD <- result_C_MD$p.value
+cat(sprintf("Mann-Whitney U test for attention between C and MD, z = %.3f, p = %.4f.\n", z_value_C_MD, p_value_C_MD))
+
+# Perform Mann-Whitney U test between C and TD
+result_C_TD <- wilcox.test(group_TD, group_C)
+z_value_C_TD <- qnorm(1 - result_C_TD$p.value / 2)
+p_value_C_TD <- result_C_TD$p.value
+cat(sprintf("Mann-Whitney U test for attention between C and TD, z = %.3f, p = %.4f.\n", z_value_C_TD, p_value_C_TD))
+  
+```
+
+### B.1(Figure 1) and its results match between the research paper and reproducible code
+
+## B.1 Effectiveness of cognitive manipulation (fig. 2) (Research Paper)
 
 ![](figures/b1fig2.png)
 
-Authors comment: 
+Authors comment:
 
 > Figure 2: Subjects spent more time on the task screen in the Time Delay and Motivated Delay treatments than in the Control Treatment; and more time in the Motivated Delay treatment than in the Time Delay treatment. The average of seconds spent on the task screen in the Motivated Delay treatment (M=101.93, SD=74.71) is 26,39 seconds higher than those spent in the Time Delay (M=75.54, SD=77.37), which are in turn 44,67 seconds higher than the average of seconds spent on the task screen in the Control treatment (M= 30.87, SD= 133.71).
+
+## B.1 Effectiveness of cognitive manipulation (fig. 2) (Reproducible Results)
+
+```{r B1 Figure 2 Plot, echo=FALSE}
+time_spent_means <- df %>%
+  group_by(treatment_group) %>%
+  summarise(Mean = mean(seconds_on_task, na.rm = TRUE),
+            SE = sd(seconds_on_task, na.rm = TRUE) / sqrt(n()))%>%
+  ungroup() %>%
+  arrange(Mean) %>%
+  mutate(treatment_group = factor(treatment_group, levels = unique(treatment_group)))
+
+# Plotting
+ggplot(time_spent_means, aes(x = treatment_group, y = Mean, fill = as.factor(treatment_group))) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE), width = 0.25) +
+  theme_minimal() +
+  labs(title = "B.1 Effectiveness of cognitive manipulation (Figure 2)", y = "Mean of seconds", x = NULL, fill="")  +
+  scale_fill_manual(values = c("C" = "#1A476F", "TD" = "#90353B", "MD" = "#55752F")) +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "top")
+
+```
+
+```{r B1 Figure 2 Mean_SD, echo=FALSE}
+# Filter the dataset for the seconds
+seconds_data <- df %>%
+  mutate(treatment_group = case_when(
+    moc == 0 ~ "C",
+    moc == 1 ~ "TD",
+    moc == 2 ~ "MD"
+  )) %>%
+  group_by(treatment_group) %>%
+  summarise(
+    Mean_Got = round(mean(seconds_on_task, na.rm = TRUE),2),
+    SD = round(sd(seconds_on_task, na.rm = TRUE),2),
+    SE = round(sd(seconds_on_task, na.rm = TRUE)/sqrt(n()),2) # Standard error
+  ) %>%
+  ungroup() %>%
+  # Arrange the data in descending order and set the factor levels based on this order
+  arrange(Mean_Got) %>%
+  mutate(treatment_group = factor(treatment_group, levels = unique(treatment_group)))
+
+# Print the adjusted data
+cat("Table for Mean and SD for seconds on task:\n")
+print(seconds_data)
+  
+```
+
+```{r B1 Figure 2 KW_MW, echo=FALSE}
+# Perform Kruskal–Wallis test for time spent variable
+time_spent_kruskal <- kruskal.test(seconds_on_task ~ treatment_group, data = df)
+
+# Subset the data for each treatment group
+time_spent_C <- df %>% filter(treatment_group == "C") %>% pull(seconds_on_task)
+time_spent_TD <- df %>% filter(treatment_group == "TD") %>% pull(seconds_on_task)
+time_spent_MD <- df %>% filter(treatment_group == "MD") %>% pull(seconds_on_task)
+
+# Perform Mann-Whitney U tests
+time_spent_result_TD_MD <- wilcox.test(time_spent_TD, time_spent_MD)
+time_spent_result_C_MD <- wilcox.test(time_spent_C, time_spent_MD)
+time_spent_result_C_TD <- wilcox.test(time_spent_TD, time_spent_C)
+
+# Calculate z-values using normal approximation
+z_value_TD_MD <- (time_spent_result_TD_MD$statistic - (length(time_spent_TD) * length(time_spent_MD) / 2)) / sqrt(length(time_spent_TD) * length(time_spent_MD) * (length(time_spent_TD) + length(time_spent_MD) + 1) / 12)
+z_value_C_MD <- (time_spent_result_C_MD$statistic - (length(time_spent_C) * length(time_spent_MD) / 2)) / sqrt(length(time_spent_C) * length(time_spent_MD) * (length(time_spent_C) + length(time_spent_MD) + 1) / 12)
+z_value_C_TD <- ((length(time_spent_TD) * length(time_spent_C) / 2) - time_spent_result_C_TD$statistic) / sqrt(length(time_spent_TD) * length(time_spent_C) * (length(time_spent_TD) + length(time_spent_C) + 1) / 12)
+
+# Print the results
+cat("Kruskal-Wallis Test for seconds on task:\n")
+print(time_spent_kruskal)
+cat("\nMann-Whitney U Test Results and Z-values:\n")
+cat("TD vs MD for seconds on task: W =", time_spent_result_TD_MD$statistic, ", p =", time_spent_result_TD_MD$p.value, ", z =", z_value_TD_MD, "\n")
+cat("C vs MD for seconds on task: W =", time_spent_result_C_MD$statistic, ", p =", time_spent_result_C_MD$p.value, ", z =", z_value_C_MD, "\n")
+cat("C vs TD for seconds on task: W =", time_spent_result_C_TD$statistic, ", p =", time_spent_result_C_TD$p.value, ", z =", z_value_C_TD, "\n")
+
+```
+
+### B.1(Figure 2) and its results match between the research paper and reproducible code 
 
 ## B.2 Multiple hypothesis adjustments
 
@@ -178,45 +626,43 @@ Table 1: Control for multiple hypothesis testing using Benjamini and Hochberg (1
 
 Table 2: Tobit regressions of Got on experimental condition ’(no) bully’ and ’self-reported attention’
 
-| Got       | (1)               | (2)               |
-|-----------|-------------------|-------------------|
-| BDG       | -2.279**          | -2.053***         |
-|           | (0.962) [0.018]   | (0.738) [0.006]   |
-| ATTENTION | -0.0761           | 0.174             |
-|           | (0.298) [0.798]   | (0.222) [0.432]   |
-| EE        |                   | 0.373***          |
-|           |                   | (0.0495) [< 0.001]|
-| NB        |                   | 0.783***          |
-|           |                   | (0.0676) [< 0.001]|
-| NE        |                   | -0.0791           |
-|           |                   | (0.0529) [0.135]  |
-| N         | 1022              | 1022              |
-
+| Got       | (1)             | (2)                 |
+|-----------|-----------------|---------------------|
+| BDG       | -2.279\*\*      | -2.053\*\*\*        |
+|           | (0.962) [0.018] | (0.738) [0.006]     |
+| ATTENTION | -0.0761         | 0.174               |
+|           | (0.298) [0.798] | (0.222) [0.432]     |
+| EE        |                 | 0.373\*\*\*         |
+|           |                 | (0.0495) [\< 0.001] |
+| NB        |                 | 0.783\*\*\*         |
+|           |                 | (0.0676) [\< 0.001] |
+| NE        |                 | -0.0791             |
+|           |                 | (0.0529) [0.135]    |
+| N         | 1022            | 1022                |
 
 ## B.4 Regressions by version of the dictator game
 
 Table 3: Tobit regressions of Got on experimental condition “cognitive manipulation” and norms, by version of the dictator game
 
-| Got        | (1) DG            | (2) DG            | (3) BDG         | (4) BDG         |
-|------------|-------------------|-------------------|-----------------|-----------------|
-| TD         | -0.824            | -0.858            | -1.716          | -1.699          |
-|            | (1.104) [0.456]   | (1.080) [0.427]   | (1.356) [0.206] | (1.349) [0.208] |
-| MD         | -1.801            | -14.85***         | -2.470**        | -6.854          |
-|            | (1.272) [0.157]   | (4.433) [0.001]   | (1.322) [0.062] | (7.608) [0.368] |
-| EE         | 0.371***          | 0.402***          | 0.361***        | 0.405***        |
-|            | (0.0686) [<0.001] | (0.0788) [<0.001] | (0.0676) [<0.001]| (0.0859) [<0.001]|
-| NB         | 0.910***          | 0.773***          | 0.628***        | 0.601***        |
-|            | (0.0685) [<0.001] | (0.0860) [<0.001] | (0.116) [<0.001] | (0.140) [<0.001] |
-| NE         | -0.149**          | -0.191**          | 0.00379         | -0.0514         |
-|            | (0.0575) [0.010]  | (0.0767) [0.013]  | (0.0868) [0.965]| (0.109) [0.636] |
-| MDxEE      |                   | -0.0576           |                 | -0.144          |
-|            |                   | (0.150) [0.702]   |                 | (0.130) [0.268] |
-| MDxNE      |                   | 0.0981            |                 | 0.193           |
-|            |                   | (0.112) [0.380]   |                 | (0.169) [0.255] |
-| MDxNB      |                   | 0.364***          |                 | 0.0983          |
-|            |                   | (0.133) [0.007]   |                 | (0.265) [0.711] |
-| N          | 509               | 509               | 513             | 513             |
-
+| Got   | (1) DG             | (2) DG             | (3) BDG            | (4) BDG            |
+|---------------|---------------|---------------|---------------|---------------|
+| TD    | -0.824             | -0.858             | -1.716             | -1.699             |
+|       | (1.104) [0.456]    | (1.080) [0.427]    | (1.356) [0.206]    | (1.349) [0.208]    |
+| MD    | -1.801             | -14.85\*\*\*       | -2.470\*\*         | -6.854             |
+|       | (1.272) [0.157]    | (4.433) [0.001]    | (1.322) [0.062]    | (7.608) [0.368]    |
+| EE    | 0.371\*\*\*        | 0.402\*\*\*        | 0.361\*\*\*        | 0.405\*\*\*        |
+|       | (0.0686) [\<0.001] | (0.0788) [\<0.001] | (0.0676) [\<0.001] | (0.0859) [\<0.001] |
+| NB    | 0.910\*\*\*        | 0.773\*\*\*        | 0.628\*\*\*        | 0.601\*\*\*        |
+|       | (0.0685) [\<0.001] | (0.0860) [\<0.001] | (0.116) [\<0.001]  | (0.140) [\<0.001]  |
+| NE    | -0.149\*\*         | -0.191\*\*         | 0.00379            | -0.0514            |
+|       | (0.0575) [0.010]   | (0.0767) [0.013]   | (0.0868) [0.965]   | (0.109) [0.636]    |
+| MDxEE |                    | -0.0576            |                    | -0.144             |
+|       |                    | (0.150) [0.702]    |                    | (0.130) [0.268]    |
+| MDxNE |                    | 0.0981             |                    | 0.193              |
+|       |                    | (0.112) [0.380]    |                    | (0.169) [0.255]    |
+| MDxNB |                    | 0.364\*\*\*        |                    | 0.0983             |
+|       |                    | (0.133) [0.007]    |                    | (0.265) [0.711]    |
+| N     | 509                | 509                | 513                | 513                |
 
 ## B.5 Frequencies of Got by treatment and Hurdle models - figure
 
@@ -230,48 +676,47 @@ Authors comment
 
 Table 4: Hurdle regressions of Give (Endowment-Got).
 
-| Got       | right             | right             | intuitive        | intuitive        |
-|-----------|-------------------|-------------------|------------------|------------------|
-|**FirstHurdle**|               |                   |                  |                  |
-| BDG       | 1.633***          | 1.687***          | 1.624***         | 1.678***         |
-|           | (0.608) [0.007]   | (0.519) [0.001]   | (0.609) [0.008]  | (0.519) [0.001]  |
-| TD        | -0.337            | -0.420            | -0.331           | -0.412           |
-|           | (0.675) [0.618]   | (0.605) [0.488]   | (0.674) [0.623]  | (0.606) [0.496]  |
-| MD        | 2.449***          | 1.406**           | 2.456***         | 1.407**          |
-|           | (0.753) [0.001]   | (0.623) [0.024]   | (0.754) [0.001]  | (0.623) [0.024]  |
-| CRT right/int | -0.391∗∗      | -0.224            | 0.377∗∗          | 0.180            |
-|           | (0.159) [0.014]   | (0.136) [0.100]   | (0.176) [0.032]  | (0.153) [0.239]  |
-| female    | -1.306**          | -1.368***         | -1.301**         | -1.348**         |
-|           | (0.608) [0.032]   | (0.530) [0.010]   | (0.609) [0.033]  | (0.536) [0.012]  |
-| household income | -0.0721    | 0.00576           | -0.0849          | -0.00228         |
-|           | (0.0838) [0.390]  | (0.0714) [0.936]  | (0.0843) [0.314] | (0.0712) [0.974] |
-| EE        |                   | -0.160***         |                  | -0.163***        |
-|           |                   | (0.0369) [<0.001] |                  | (0.0371) [<0.001]|
-| NB        |                   | -0.477***         |                  | -0.477***        |
-|           |                   | (0.0754) [<0.001] |                  | (0.0756) [<0.001]|
-| NE        |                   | -0.00869          |                  | -0.00800         |
-|           |                   | (0.0428) [0.839]  |                  | (0.0429) [0.852] |
-|**SecondHurdle**|              |                   |                  |                  |
-| BDG       | 0.128             | 0.129             | 0.127            | 0.125            |
-|           | (0.102) [0.210]   | (0.124) [0.297]   | (0.103) [0.217]  | (0.125) [0.319]  |
-| TD        | 0.194             | 0.366**           | 0.189            | 0.357**          |
-|           | (0.124) [0.118]   | (0.150) [0.015]   | (0.125) [0.131]  | (0.152) [0.019]  |
-| MD        | 0.156             | 0.186             | 0.165            | 0.193            |
-|           | (0.123) [0.203]   | (0.151) [0.216]   | (0.123) [0.181]  | (0.150) [0.199]  |
-| CRT right/int | -0.0542**     | -0.0649**         | 0.0959***        | 0.104***         |
-|           | (0.0262) [0.039]  | (0.0325) [0.046]  | (0.0303) [0.002] | (0.0364) [0.004] |
-| female    | 0.338***          | 0.298**           | 0.316***         | 0.273**          |
-|           | (0.104) [0.001]   | (0.125) [0.017]   | (0.105) [0.003]  | (0.125) [0.029]  |
-| household income | -0.00575   | 0.00287           | -0.00551         | 0.00282          |
-|           | (0.0145) [0.693]  | (0.0172) [0.867]  | (0.0145) [0.704] | (0.0171) [0.869] |
-| EE        |                   | -0.0403***        |                  | -0.0405***       |
-|           |                   | (0.00571) [<0.001]|                  | (0.00573) [<0.001]|
-| NB        |                   | -0.0613***        |                  | -0.0611***       |
-|           |                   | (0.00624) [<0.001]|                  | (0.00629) [<0.001]|
-| NE        |                   | 0.0151**          |                  | 0.0148**         |
-|           |                   | (0.00676) [0.025] |                  | (0.00686) [0.031]|
-| N         | 1019              | 1019              | 1019             | 1019             |
-
+| Got              | right            | right               | intuitive        | intuitive           |
+|---------------|---------------|---------------|---------------|---------------|
+| **FirstHurdle**  |                  |                     |                  |                     |
+| BDG              | 1.633\*\*\*      | 1.687\*\*\*         | 1.624\*\*\*      | 1.678\*\*\*         |
+|                  | (0.608) [0.007]  | (0.519) [0.001]     | (0.609) [0.008]  | (0.519) [0.001]     |
+| TD               | -0.337           | -0.420              | -0.331           | -0.412              |
+|                  | (0.675) [0.618]  | (0.605) [0.488]     | (0.674) [0.623]  | (0.606) [0.496]     |
+| MD               | 2.449\*\*\*      | 1.406\*\*           | 2.456\*\*\*      | 1.407\*\*           |
+|                  | (0.753) [0.001]  | (0.623) [0.024]     | (0.754) [0.001]  | (0.623) [0.024]     |
+| CRT right/int    | -0.391∗∗         | -0.224              | 0.377∗∗          | 0.180               |
+|                  | (0.159) [0.014]  | (0.136) [0.100]     | (0.176) [0.032]  | (0.153) [0.239]     |
+| female           | -1.306\*\*       | -1.368\*\*\*        | -1.301\*\*       | -1.348\*\*          |
+|                  | (0.608) [0.032]  | (0.530) [0.010]     | (0.609) [0.033]  | (0.536) [0.012]     |
+| household income | -0.0721          | 0.00576             | -0.0849          | -0.00228            |
+|                  | (0.0838) [0.390] | (0.0714) [0.936]    | (0.0843) [0.314] | (0.0712) [0.974]    |
+| EE               |                  | -0.160\*\*\*        |                  | -0.163\*\*\*        |
+|                  |                  | (0.0369) [\<0.001]  |                  | (0.0371) [\<0.001]  |
+| NB               |                  | -0.477\*\*\*        |                  | -0.477\*\*\*        |
+|                  |                  | (0.0754) [\<0.001]  |                  | (0.0756) [\<0.001]  |
+| NE               |                  | -0.00869            |                  | -0.00800            |
+|                  |                  | (0.0428) [0.839]    |                  | (0.0429) [0.852]    |
+| **SecondHurdle** |                  |                     |                  |                     |
+| BDG              | 0.128            | 0.129               | 0.127            | 0.125               |
+|                  | (0.102) [0.210]  | (0.124) [0.297]     | (0.103) [0.217]  | (0.125) [0.319]     |
+| TD               | 0.194            | 0.366\*\*           | 0.189            | 0.357\*\*           |
+|                  | (0.124) [0.118]  | (0.150) [0.015]     | (0.125) [0.131]  | (0.152) [0.019]     |
+| MD               | 0.156            | 0.186               | 0.165            | 0.193               |
+|                  | (0.123) [0.203]  | (0.151) [0.216]     | (0.123) [0.181]  | (0.150) [0.199]     |
+| CRT right/int    | -0.0542\*\*      | -0.0649\*\*         | 0.0959\*\*\*     | 0.104\*\*\*         |
+|                  | (0.0262) [0.039] | (0.0325) [0.046]    | (0.0303) [0.002] | (0.0364) [0.004]    |
+| female           | 0.338\*\*\*      | 0.298\*\*           | 0.316\*\*\*      | 0.273\*\*           |
+|                  | (0.104) [0.001]  | (0.125) [0.017]     | (0.105) [0.003]  | (0.125) [0.029]     |
+| household income | -0.00575         | 0.00287             | -0.00551         | 0.00282             |
+|                  | (0.0145) [0.693] | (0.0172) [0.867]    | (0.0145) [0.704] | (0.0171) [0.869]    |
+| EE               |                  | -0.0403\*\*\*       |                  | -0.0405\*\*\*       |
+|                  |                  | (0.00571) [\<0.001] |                  | (0.00573) [\<0.001] |
+| NB               |                  | -0.0613\*\*\*       |                  | -0.0611\*\*\*       |
+|                  |                  | (0.00624) [\<0.001] |                  | (0.00629) [\<0.001] |
+| NE               |                  | 0.0151\*\*          |                  | 0.0148\*\*          |
+|                  |                  | (0.00676) [0.025]   |                  | (0.00686) [0.031]   |
+| N                | 1019             | 1019                | 1019             | 1019                |
 
 ## B.6 CRT types
 
