@@ -136,9 +136,41 @@ Authors comments
 
 # Reproducing results - droput analyses
 
-Authors comments:
+## In this section, a smaller dataset is created and it is verified if the dropout phenomenon is making any difference in terms of analysis
+
+> This piece of code shortens the dataset for specific conditions and data observations. 
+> Frequency tables for these new variables are generated to examine their distributions.
+> And finally, the dataset is restored to its original state before these manipulations were performed.
+
+
+
+## Replicating  the drop_general variable to see how many instances are dropped generally
+### when the indicator == 1; this means the individual has dropped from experiment
+
+> table(data$drop_general)
+
+   0  |  1 
+1014  |  6 
+
+
+## Replicating the drop_on_task variable to see how many instances are dropped on task
+### when the indicator == 1; this means the individual has dropped from experiment
+
+> table(data$drop_on_task)
+
+   0  |  1 
+1014  |  6
+
+
+# Authors comments:
 
 > The occurrence of dropouts is one of the limitations of the online experimental setting. However, this occurrence is rare in our experiment (3.13 percent drop out from the experiment overall and only 1.80 percent during the task) and, at least to some extent, it can be ascribed to exogenous factors.
+
+# Replication:
+> As per author's observation, we also see that such findings are not washed out by controlling for elicited variables,
+> which in turn appear not to be affected by the experimental conditions.
+> beceuase the both the overall drop_general rate and drop_on_task are estimated to be very low and not affecting the experiment.
+
 
 # Reproducing results - Further statistical analyses
 
