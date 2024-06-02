@@ -22,11 +22,9 @@ library(tidyr)
 library(readxl)
 library(knitr)
 library(zoo)
-library(carData)
 library(lmtest)
 library(AER)
 library(gridExtra)
-library(car)
 
 link_to_data <- "https://osf.io/download/uh4z7/?view_only=de730bd958ef4711819216d30361c8d8"
 file_to_save <- "data_DMDDG.xls"
@@ -61,7 +59,7 @@ count_df <- df %>%
   group_by(game_type, treatment_group) %>% 
   summarise(count = n(), .groups = 'drop') %>%
   mutate(game_type = factor(game_type, levels = c("Standard Dictator Game", "Bully Dictator Game")),
-         treatment_group = recode(treatment_group,
+         treatment_group = dplyr::recode(treatment_group,
                                   "C" = "Control",
                                   "TD" = "Time Delay",
                                   "MD" = "Motivated Delay")) %>%
@@ -493,66 +491,6 @@ Authors comments:
 
 > Table 3 reports the estimates for three Tobit regressions where, respectively, EE, NB, and NE are regressed on dummies for the TD, MD and BDG conditions (omitted category is the case of the DG and C conditions). No estimated coefficient of these regressors is significantly different from zero, confirming that EE, NB, and NE are not affected by our experimental conditions.
 
-## Table 3 Reproducible Results
-```{r}
-data$ee <- as.numeric(data$ee) / 100
-data$nb <- as.numeric(data$nb) / 100
-data$ne <- as.numeric(data$ne) / 100
-data$Got <- as.numeric(data$kept) / 100
-
-# Define a function to fit Tobit models
-fit_tobit <- function(data, predictors, interaction = FALSE) {
-  if (interaction) {
-    formula <- as.formula(paste("Got ~", paste(predictors, collapse = " + "), "+", paste(paste("MD *", predictors[3:length(predictors)]), collapse = " + ")))
-  } else {
-    formula <- as.formula(paste("Got ~", paste(predictors, collapse = " + ")))
-  }
-  model <- tobit(formula, data = data, left = 0.10, right = 0.60)
-  return(model)
-}
-
-# Define predictors
-predictors <- c("TD", "MD", "ee", "nb", "ne")
-
-# Fit models
-results_dg_no_interaction <- fit_tobit(data[data$bully == "DG", ], predictors, interaction = FALSE)
-results_dg_interaction <- fit_tobit(data[data$bully == "DG", ], predictors, interaction = TRUE)
-results_bdg_no_interaction <- fit_tobit(data[data$bully == "BDG", ], predictors, interaction = FALSE)
-results_bdg_interaction <- fit_tobit(data[data$bully == "BDG", ], predictors, interaction = TRUE)
-
-# Summarize results
-summary_dg_no_interaction <- summary(results_dg_no_interaction)
-summary_dg_interaction <- summary(results_dg_interaction)
-summary_bdg_no_interaction <- summary(results_bdg_no_interaction)
-summary_bdg_interaction <- summary(results_bdg_interaction)
-
-# Get unique set of coefficient names
-coef_names <- unique(c(
-  rownames(summary_dg_no_interaction$coefficients),
-  rownames(summary_dg_interaction$coefficients),
-  rownames(summary_bdg_no_interaction$coefficients),
-  rownames(summary_bdg_interaction$coefficients)
-))
-
-# Function to extract coefficients, standard errors, and p-values, filling missing with NA
-extract_model_summary <- function(model_summary, coef_names) {
-  coef_df <- as.data.frame(matrix(NA, nrow = length(coef_names), ncol = 4))
-  rownames(coef_df) <- coef_names
-  colnames(coef_df) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
-  matching_indices <- match(rownames(model_summary$coefficients), coef_names)
-  coef_df[matching_indices, ] <- model_summary$coefficients
-  return(coef_df)
-}
-
-# Extract summaries for all models
-summary_dg_no_interaction_df <- extract_model_summary(summary_dg_no_interaction, coef_names)
-summary_dg_interaction_df <- extract_model_summary(summary_dg_interaction, coef_names)
-summary_bdg_no_interaction_df
-summary_dg_interaction_df
-```
-### Table 3 the results have differences with the paper
-
-
 ## Table 4. Tobit regressions of Got on experimental conditions and controls.
 
 Table 4. Tobit regressions of Got on experimental conditions and controls.
@@ -864,6 +802,66 @@ Table 3: Tobit regressions of Got on experimental condition “cognitive manipul
 | MDxNB |                    | 0.364\*\*\*        |                    | 0.0983             |
 |       |                    | (0.133) [0.007]    |                    | (0.265) [0.711]    |
 | N     | 509                | 509                | 513                | 513                |
+
+## Table 3 Reproducible Results
+```{r}
+data$ee <- as.numeric(data$ee) / 100
+data$nb <- as.numeric(data$nb) / 100
+data$ne <- as.numeric(data$ne) / 100
+data$Got <- as.numeric(data$kept) / 100
+
+# Define a function to fit Tobit models
+fit_tobit <- function(data, predictors, interaction = FALSE) {
+  if (interaction) {
+    formula <- as.formula(paste("Got ~", paste(predictors, collapse = " + "), "+", paste(paste("MD *", predictors[3:length(predictors)]), collapse = " + ")))
+  } else {
+    formula <- as.formula(paste("Got ~", paste(predictors, collapse = " + ")))
+  }
+  model <- tobit(formula, data = data, left = 0.10, right = 0.60)
+  return(model)
+}
+
+# Define predictors
+predictors <- c("TD", "MD", "ee", "nb", "ne")
+
+# Fit models
+results_dg_no_interaction <- fit_tobit(data[data$bully == "DG", ], predictors, interaction = FALSE)
+results_dg_interaction <- fit_tobit(data[data$bully == "DG", ], predictors, interaction = TRUE)
+results_bdg_no_interaction <- fit_tobit(data[data$bully == "BDG", ], predictors, interaction = FALSE)
+results_bdg_interaction <- fit_tobit(data[data$bully == "BDG", ], predictors, interaction = TRUE)
+
+# Summarize results
+summary_dg_no_interaction <- summary(results_dg_no_interaction)
+summary_dg_interaction <- summary(results_dg_interaction)
+summary_bdg_no_interaction <- summary(results_bdg_no_interaction)
+summary_bdg_interaction <- summary(results_bdg_interaction)
+
+# Get unique set of coefficient names
+coef_names <- unique(c(
+  rownames(summary_dg_no_interaction$coefficients),
+  rownames(summary_dg_interaction$coefficients),
+  rownames(summary_bdg_no_interaction$coefficients),
+  rownames(summary_bdg_interaction$coefficients)
+))
+
+# Function to extract coefficients, standard errors, and p-values, filling missing with NA
+extract_model_summary <- function(model_summary, coef_names) {
+  coef_df <- as.data.frame(matrix(NA, nrow = length(coef_names), ncol = 4))
+  rownames(coef_df) <- coef_names
+  colnames(coef_df) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
+  matching_indices <- match(rownames(model_summary$coefficients), coef_names)
+  coef_df[matching_indices, ] <- model_summary$coefficients
+  return(coef_df)
+}
+
+# Extract summaries for all models
+summary_dg_no_interaction_df <- extract_model_summary(summary_dg_no_interaction, coef_names)
+summary_dg_interaction_df <- extract_model_summary(summary_dg_interaction, coef_names)
+summary_dg_no_interaction_df
+summary_dg_interaction_df
+```
+
+Table 3 the results have differences with the paper
 
 ## B.5 Frequencies of Got by treatment and Hurdle models - figure
 
