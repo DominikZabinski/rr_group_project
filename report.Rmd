@@ -21,6 +21,10 @@ library(ggplot2)
 library(tidyr)
 library(readxl)
 library(knitr)
+library(zoo)
+library(lmtest)
+library(AER)
+library(gridExtra)
 
 link_to_data <- "https://osf.io/download/uh4z7/?view_only=de730bd958ef4711819216d30361c8d8"
 file_to_save <- "data_DMDDG.xls"
@@ -55,7 +59,7 @@ count_df <- df %>%
   group_by(game_type, treatment_group) %>% 
   summarise(count = n(), .groups = 'drop') %>%
   mutate(game_type = factor(game_type, levels = c("Standard Dictator Game", "Bully Dictator Game")),
-         treatment_group = recode(treatment_group,
+         treatment_group = dplyr::recode(treatment_group,
                                   "C" = "Control",
                                   "TD" = "Time Delay",
                                   "MD" = "Motivated Delay")) %>%
@@ -364,6 +368,109 @@ cat(sprintf("Mann–Whitney test applied between DG (Standard Dictator Game) and
 Authors comment:
 
 > Fig. 5. The elicited norms (a) do not differ under the different cognitive manipulations and the control, (b) do not differ between the standard and the Bully Dictator Game The difference in the means of Empirical Expectations (EE), Normative Beliefs (NB) and Normative Expectations (NE) are not statistically significant neither with respect to cognitive manipulations nor to variants of the dictator game. We only note a mild effect of the cognitive manipulation on NB. EE: C vs TD vs MD, Kruskal–Wallis, $p =  0.3995$; DG vs BDG: Mann–Whitney test, $p =  0.9215$. NB: C vs TD vs MD, Kruskal–Wallis, $p =  0.0789$; DG vs BDG: Mann–Whitney test, $p =  0.4578$. NB: C vs TD vs MD, Kruskal–Wallis, $p =  0.7893$; DG vs BDG: Mann–Whitney test, $p =  0.9358$.
+
+## Figure 5 Reproducible Results 
+```{r pressure, echo=FALSE}
+# Load the dataset
+data <- read_excel("data_DMDDG.xls")
+
+# Convert necessary columns to factors
+data$moc <- factor(data$moc, levels = c(0, 1), labels = c("C", "TD"))
+data$moc1 <- factor(data$moc1, levels = c(0, 1), labels = c("C", "TD"))
+data$moc2 <- factor(data$moc2, levels = c(0, 1), labels = c("C", "MD"))
+data$bully <- factor(data$bully, levels = c(0, 1), labels = c("DG", "BDG"))
+
+# make the mean as numeric 
+data$ee <- as.numeric(data$ee)
+data$nb <- as.numeric(data$nb)
+data$ne <- as.numeric(data$ne)
+
+# Create variables for treatment types
+data$BDG <- ifelse(data$bully == "BDG", 1, 0)
+data$TD <- ifelse(data$moc1 == "TD", 1, 0)
+data$MD <- ifelse(data$moc2 == "MD", 1, 0)
+
+# Combine moc, moc1, moc2 into a single column 
+data_combined <- data %>%
+  mutate(group = case_when(
+    moc == "C" ~ "C",
+    moc1 == "TD" ~ "TD",
+    moc2 == "MD" ~ "MD"
+  ))
+
+data_combined$group <- factor(data_combined$group, levels = c("C", "TD", "MD"))
+```
+
+
+```{r}
+# Define custom colors
+custom_colors <- c("C" = "#F8766D", "TD" = "#00BA38", "MD" = "#619CFF", "DG" = "#FDE725", "BDG" = "#A9A9A9")
+
+# Function to create plot for each norm by condition
+create_plot <- function(data, norm, condition_col, y_label, title_label) {
+  ggplot(data, aes_string(x = condition_col, y = norm, fill = condition_col)) +
+    geom_bar(stat = "summary", fun = "mean", position = position_dodge(), width = 0.7) +
+    geom_errorbar(stat = "summary", fun.data = mean_se, position = position_dodge(0.7), width = 0.2) +
+    scale_fill_manual(values = custom_colors) +
+    labs(y = y_label, x = "", title = title_label) +
+    theme_minimal() +
+    theme(legend.position = "none",
+          axis.text.x = element_text(size = 12, face = "bold"),
+          axis.text.y = element_text(size = 12, face = "bold"),
+          axis.title.x = element_text(size = 14, face = "bold"),
+          axis.title.y = element_text(size = 14, face = "bold")) +
+    coord_cartesian(ylim = c(30, 40))
+}
+
+# Create plots for the EE, NB, NE means for 3 cognitive manipulations
+plot_ee_combined <- create_plot(data_combined, "ee", "group", "mean of ee", "EE")
+plot_nb_combined <- create_plot(data_combined, "nb", "group", "mean of nb", "NB")
+plot_ne_combined <- create_plot(data_combined, "ne", "group", "mean of ne", "NE")
+
+# Create individual plots for EE, NB, NE norms by 'bully'
+plot_ee_bully <- create_plot(data, "ee", "bully", "mean of ee", "EE")
+plot_nb_bully <- create_plot(data, "nb", "bully", "mean of nb", "NB")
+plot_ne_bully <- create_plot(data, "ne", "bully", "mean of ne", "NE")
+
+# Arrange the plots into a single canvas
+top_row <- grid.arrange(plot_ee_combined, plot_nb_combined, plot_ne_combined, ncol = 3)
+bottom_row <- grid.arrange(plot_ee_bully, plot_nb_bully, plot_ne_bully, ncol = 3)
+
+# Arrange all rows into one plot
+final_plot <- grid.arrange(top_row, bottom_row, nrow = 2)
+
+```
+
+```{r}
+# Perform statistical tests
+# Kruskal-Wallis tests for cognitive manipulations (C vs TD vs MD)
+kruskal_ee <- kruskal.test(ee ~ group, data = data_combined)
+kruskal_nb <- kruskal.test(nb ~ group, data = data_combined)
+kruskal_ne <- kruskal.test(ne ~ group, data = data_combined)
+
+# Mann-Whitney tests for DG vs BDG
+mann_whitney_ee <- wilcox.test(ee ~ bully, data = data)
+mann_whitney_nb <- wilcox.test(nb ~ bully, data = data)
+mann_whitney_ne <- wilcox.test(ne ~ bully, data = data)
+
+# Print results
+kruskal_results <- data.frame(
+  Test = "Kruskal-Wallis",
+  Variable = c("EE", "NB", "NE"),
+  p_value = c(kruskal_ee$p.value, kruskal_nb$p.value, kruskal_ne$p.value)
+)
+
+mann_whitney_results <- data.frame(
+  Test = "Mann-Whitney",
+  Variable = c("EE", "NB", "NE"),
+  p_value = c(mann_whitney_ee$p.value, mann_whitney_nb$p.value, mann_whitney_ne$p.value)
+)
+
+test_results <- bind_rows(kruskal_results, mann_whitney_results)
+print(test_results)
+
+```
+### Figure 5 the results match the paper 
 
 ## Table 3. Tobit regressions of elicited norms on experimental conditions.
 
@@ -695,6 +802,66 @@ Table 3: Tobit regressions of Got on experimental condition “cognitive manipul
 | MDxNB |                    | 0.364\*\*\*        |                    | 0.0983             |
 |       |                    | (0.133) [0.007]    |                    | (0.265) [0.711]    |
 | N     | 509                | 509                | 513                | 513                |
+
+## Table 3 Reproducible Results
+```{r}
+data$ee <- as.numeric(data$ee) / 100
+data$nb <- as.numeric(data$nb) / 100
+data$ne <- as.numeric(data$ne) / 100
+data$Got <- as.numeric(data$kept) / 100
+
+# Define a function to fit Tobit models
+fit_tobit <- function(data, predictors, interaction = FALSE) {
+  if (interaction) {
+    formula <- as.formula(paste("Got ~", paste(predictors, collapse = " + "), "+", paste(paste("MD *", predictors[3:length(predictors)]), collapse = " + ")))
+  } else {
+    formula <- as.formula(paste("Got ~", paste(predictors, collapse = " + ")))
+  }
+  model <- tobit(formula, data = data, left = 0.10, right = 0.60)
+  return(model)
+}
+
+# Define predictors
+predictors <- c("TD", "MD", "ee", "nb", "ne")
+
+# Fit models
+results_dg_no_interaction <- fit_tobit(data[data$bully == "DG", ], predictors, interaction = FALSE)
+results_dg_interaction <- fit_tobit(data[data$bully == "DG", ], predictors, interaction = TRUE)
+results_bdg_no_interaction <- fit_tobit(data[data$bully == "BDG", ], predictors, interaction = FALSE)
+results_bdg_interaction <- fit_tobit(data[data$bully == "BDG", ], predictors, interaction = TRUE)
+
+# Summarize results
+summary_dg_no_interaction <- summary(results_dg_no_interaction)
+summary_dg_interaction <- summary(results_dg_interaction)
+summary_bdg_no_interaction <- summary(results_bdg_no_interaction)
+summary_bdg_interaction <- summary(results_bdg_interaction)
+
+# Get unique set of coefficient names
+coef_names <- unique(c(
+  rownames(summary_dg_no_interaction$coefficients),
+  rownames(summary_dg_interaction$coefficients),
+  rownames(summary_bdg_no_interaction$coefficients),
+  rownames(summary_bdg_interaction$coefficients)
+))
+
+# Function to extract coefficients, standard errors, and p-values, filling missing with NA
+extract_model_summary <- function(model_summary, coef_names) {
+  coef_df <- as.data.frame(matrix(NA, nrow = length(coef_names), ncol = 4))
+  rownames(coef_df) <- coef_names
+  colnames(coef_df) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
+  matching_indices <- match(rownames(model_summary$coefficients), coef_names)
+  coef_df[matching_indices, ] <- model_summary$coefficients
+  return(coef_df)
+}
+
+# Extract summaries for all models
+summary_dg_no_interaction_df <- extract_model_summary(summary_dg_no_interaction, coef_names)
+summary_dg_interaction_df <- extract_model_summary(summary_dg_interaction, coef_names)
+summary_dg_no_interaction_df
+summary_dg_interaction_df
+```
+
+Table 3 the results have differences with the paper
 
 ## B.5 Frequencies of Got by treatment and Hurdle models - figure
 
