@@ -362,7 +362,7 @@ kruskal_test <- kruskal.test(kept ~ treatment_group, data = df %>% filter(game_t
 # Store the p-value for use in the plot annotation
 p_value <- round(kruskal_test$p.value, 4)
 
-paste("Kruskal-Wallis, p =", p_value)
+paste("Kruskal-Wallis for standard dictator game, p =", p_value)
 ```
 
 </div></div>
