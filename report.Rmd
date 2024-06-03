@@ -5,6 +5,7 @@ output:
     html_document:
         toc: true
         toc_float: true
+        theme: yeti
 ---
 
 # Introduction
@@ -13,8 +14,10 @@ output:
 
 # Data preparation
 
-```{r Loading Packages & Data}
-# For data manipulation
+```{r Settings & Loading Packages, echo = FALSE, warning = FALSE, message=FALSE}
+# Settings
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+# Libraries
 library(dplyr)
 library(readr)
 library(ggplot2)
@@ -25,7 +28,139 @@ library(zoo)
 library(lmtest)
 library(AER)
 library(gridExtra)
+library(kableExtra)
+library(pscl)
+```
 
+```{r Functions}
+#' Perform Mann-Whitney U test
+#'
+#' @param df_ data.frame
+#' @param group_column_name name of column with groups
+#' @param group_1_name name of first group
+#' @param group_2_name name of second group
+#' @param value_name name of column with values to compare
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' do_mann_whitney(mtcars, "cyl", "4", "6", "mpg")
+do_mann_whitney <- function(df_, group_column_name, group_1_name, group_2_name, value_name) {
+    y1 <- df_[df_[[group_column_name]] == group_1_name, ][[value_name]]
+    y2 <- df_[df_[[group_column_name]] == group_2_name, ][[value_name]]
+    wilcox.test(y1, y2)
+}
+
+#' Star p-values
+#'
+#' @param x numeric vector with pvalues
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' star_p_value(c(1, .4, 1e-6, .04, .07))
+star_p_value <- function(x) {
+    res <- rep("", length(x))
+    res[x < .1] <- "*"
+    res[x < .05] <- "**"
+    res[x < .01] <- "***"
+    res
+}
+
+#' Prettify data.frame with coefficients
+#'
+#' @param x data.frame with coefficients
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' pretty_t(summary(lm(hp ~ ., mtcars))$coefficients, pvalue_name = "Pr(>|t|)")
+pretty_t <- function(x, pvalue_name = "Pr(>|z|)") {
+    zero_model <- as.data.frame(x)
+    # Getting variable names
+    zero_model$vars <- row.names(zero_model)
+    # Removing intercept
+    zero_model <- zero_model[zero_model$vars != "(Intercept)", ]
+    # Copying column with pvalue
+    zero_model$pvalue <- zero_model[[pvalue_name]]
+    # Creating print-friendly column
+    zero_model <- zero_model %>% 
+        mutate(rounded_est = round(Estimate, 3),
+               rounded_std = round(`Std. Error`, 3),
+               rounded_pvl = round(pvalue, 3),
+               to_print = paste0(rounded_est, star_p_value(pvalue), "<br>(", rounded_std, ")[", rounded_pvl, "]"))
+    # Removing redundant columns and row.names 
+    zero_model <- zero_model[c("vars", "to_print")]
+    row.names(zero_model) <- NULL
+    zero_model
+}
+
+#' Prettify coefficients for 'coeftest' class
+#'
+#' @param x model that summarry returns 'coeftest' as its coefficients
+#'
+#' @return
+#' @export
+#'
+#' @examples
+pretty_t_coefftest <- function(x) {
+    rbind(pretty_t(x = unclass(summary(x)$coefficients)) %>% filter(vars != "Log(scale)"), 
+          data.frame(vars = "log likelihood", to_print = round(min(summary(x)$loglik), 0)))
+}
+
+#' Merge list of data.frames
+#'
+#' @param df_list_to_merge list of data frames to merge
+#' @param merge_by name of column to merge by
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' to_frame_multi(list(data.frame(var1 = c("A", "V"), var2 = 3:4), data.frame(var1 = c("V", "W"), var2 = 1:2)), "var1")
+to_frame_multi <- function(df_list_to_merge, merge_by = "vars") {
+    Reduce(function(x, y) merge(x, y, by = merge_by, all = T, sort = F), x = df_list_to_merge)
+}
+
+# Define a function to fit Tobit models
+#' Title
+#'
+#' @param data data.frame
+#' @param predictors vector of names of predictors
+#' @param interaction logical - include interactions?
+#'
+#' @return
+#' @export
+#'
+#' @examples
+fit_tobit <- function(data, predictors, to_predict = "Got", interaction = FALSE, limits = list(left = .1, right = .6)) {
+    model_formula <- sprintf("%s ~ %s", to_predict, paste(predictors, collapse = " + "))
+    if (interaction) {
+        model_formula <- sprintf("%s+%s", model_formula, paste(paste("MD *", predictors[3:length(predictors)]), collapse = " + "))
+    }
+    model <- tobit(as.formula(model_formula), data = data, left = limits$left, right = limits$right)
+    return(model)
+}
+
+reorder_rename <- function(tbl_, named_vector) {
+    tbl_ %>% 
+        slice(match(names(named_vector), vars)) %>% 
+        mutate(vars = unname(named_vector[names(named_vector) %in% tbl_$vars]))    
+}
+```
+
+```{r Variables}
+vars_final <- c("BDGBDG" = "BDG", "attention" = "ATTENTION", 
+                "treatment_group_factorTD" = "TD", "treatment_group_factorMD" = "MD", 
+                "ee" = "EE", "nb" = "NB", "ne" = "NE", 
+                "crt_right" = "CRT right/int", "female" = "Female", "household_income" = "Household income", 
+                "log likelihood" = "log likelihood")
+```
+
+```{r Loading Data}
 link_to_data <- "https://osf.io/download/uh4z7/?view_only=de730bd958ef4711819216d30361c8d8"
 file_to_save <- "data_DMDDG.xls"
 
@@ -39,20 +174,32 @@ head(df)
 
 ## Table 1. Number of participants for each of the 3 × 2 experimental conditions (Research Paper)
 
-Table 1. Number of participants for each of the 3 × 2 experimental conditions.
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
 
 |                            | Control       | Time Delay     | Motivated Delay |
 |--------------------|-----------------|-----------------|-----------------|
 | **Standard Dictator Game** | DG-C (N=174)  | DG-TD (N=169)  | DG-MD (N=166)   |
 | **Bully Dictator Game**    | BDG-C (N=176) | BDG-TD (N=174) | BDG-MD (N=163)  |
 
-## Table 1. Number of participants for each of the 3 × 2 experimental conditions (Reproducible Results)
+</div>
+
+<div class = "col-md-6">
+*Reproduced*
 ```{r mapping variables, echo=FALSE}
 # Map the treatments to 'C', 'TD', and 'MD'
 df$treatment_group <- ifelse(grepl("^control", df$treatment), "C",
                               ifelse(grepl("^delay", df$treatment), "TD", "MD"))
 
 df$game_type <- ifelse(df$bully == 0, "Standard Dictator Game", "Bully Dictator Game")
+
+df$game_type_short <- ifelse(df$bully == 0, "SDG", "BDG")
+df$game_type_short <- factor(df$game_type_short, levels = c("SDG", "BDG"))
+df$bully_type <- ifelse(df$bully == 0, "NB", "B")
+df$give <- 60 - df$kept
 
 # Count occurrences of each combination of game_type and treatment_group
 count_df <- df %>% 
@@ -67,16 +214,20 @@ count_df <- df %>%
   arrange(game_type)
 
 # Print the counts with a title
-kable(count_df, caption = "Table 1: Number of participants for each of the 3 × 2 experimental conditions.")
-
+kable(count_df) %>% kable_styling()
 ```
 
-### Table 1 results match between the research paper and reproducible code 
+</div></div>
 
+Table 1 results match between the research paper and reproducible code 
 
 ## Table 2. Differences across treatments of socio-demographic characteristics(Research Paper)
 
-Table 2. Differences across treatments of socio-demographic characteristics.
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
 
 | Variable         | Test           | p (by treatment) | p (by cogn. manip.) |
 |------------------|----------------|------------------|---------------------|
@@ -91,8 +242,10 @@ Table 2. Differences across treatments of socio-demographic characteristics.
 | Student          | $\chi^2$       | 0.994            | 0.913               |
 | Democrat         | $\chi^2$       | 0.549            | 0.398               |
 
+</div>
+<div class = "col-md-6">
 
-## Table 2. Differences across treatments of socio-demographic characteristics (Reproducible Results)
+*Reproduced*
 ```{r Table 2, echo=FALSE}
 # Standard Dictator Game Data
 DG <- subset(df, treatment %in% c("controlNObully", "delayNObully", "motivationNObully"))
@@ -147,21 +300,29 @@ results_table <- data.frame(
 )
 
 # Print the counts with a title
-kable(results_table, caption = "Table 2: Differences across treatments of socio-demographic characteristics.")
+kable(results_table) %>% kable_styling()
 ```
+</div></div>
 
-### Table 2 results match between the research paper and reproducible code
+Table 2 results match between the research paper and reproducible code
 
-## Figure 2 Research Paper
+## Figure 2
 
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
 ![](https://ars.els-cdn.com/content/image/1-s2.0-S2214804323001325-gr2_lrg.jpg)
 
 Authors comments:
 
 > Fig. 2. In the Standard Dictator Game, the amount got by the dictators does not differ significantly under the different cognitive manipulations and the control treatment. There is no statistically significant difference among the average of money got by the dictators in the Control (M = 36.09, SD = 12.01), the Time Delay (M = 35.32, SD = 11.23), and the Motivated Delay (M = 33.61, SD = 15.45) treatments (Kruskal–Wallis, p = 0.5204).
 
-## Figure 2 Reproducible Results
+</div>
 
+<div class = "col-md-6">
+*Reproduced*
 ```{r Figure 2 Plot, echo=FALSE}
 # Filter the dataset for the Standard Dictator Game
 standard_dictator_game_data <- df %>%
@@ -188,15 +349,12 @@ ggplot(standard_dictator_game_data, aes(x = treatment_group, y = Mean, fill = tr
 ```
 
 ```{r Figure 2 Mean_SD, echo=FALSE}
-# Explain what the Kruskal-Wallis test is applied on
-cat("Mean and SD for the distributions of 'kept' across different treatment groups within the Standard Dictator Game.\n")
-# Print the adjusted data
-print(standard_dictator_game_data)
+# Mean and SD for the distributions of 'kept' across different treatment groups within the Standard Dictator Game.
+kable(standard_dictator_game_data) %>% kable_styling()
 ```
 
 ```{r Figure 2 KW, echo=FALSE}
-# Explain what the Kruskal-Wallis test is applied on
-cat("Performing Kruskal-Wallis test to compare the distributions of 'kept' across different treatment groups within the Standard Dictator Game.\n")
+# Performing Kruskal-Wallis test to compare the distributions of 'kept' across different treatment groups within the Standard Dictator Game.
 
 # Conduct Kruskal-Wallis test
 kruskal_test <- kruskal.test(kept ~ treatment_group, data = df %>% filter(game_type == "Standard Dictator Game"))
@@ -204,14 +362,19 @@ kruskal_test <- kruskal.test(kept ~ treatment_group, data = df %>% filter(game_t
 # Store the p-value for use in the plot annotation
 p_value <- round(kruskal_test$p.value, 4)
 
-# Create an annotation text with the Kruskal-Wallis result
-annotation_text <- paste("Kruskal-Wallis, p =", p_value, ". Note. Confidence intervals on means are at 95%.")
-print(annotation_text)
+paste("Kruskal-Wallis, p =", p_value)
 ```
 
-### Figure 2 and its results match between the research paper and reproducible code
+</div></div>
+Figure 2 and its results match between the research paper and reproducible code
 
-## Figure 3 Research Paper
+## Figure 3
+
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
 
 ![](https://ars.els-cdn.com/content/image/1-s2.0-S2214804323001325-gr3_lrg.jpg)
 
@@ -219,8 +382,9 @@ Authors comments:
 
 > Fig. 3. In the Bully Dictator Game, the dictators get the lowest amount under motivated delay. The average amount of money the dictators got in the Motivated delay treatment (M = 30.80, SD = 12.22) is lower than in the Time Delay treatment (M = 33.28, SD = 12.91), and lower than the amount of money got by the dictators in the Control treatment (M = 34.54, SD = 13.17). Statistically significant differences are observed among the TD, MD, and C treatments (Kruskal–Wallis, p = 0.0145). Pairwise comparisons reveal that the MD treatment has a significantly lower average Got level compared to both TD (Mann–Whitney test, $z = 2.467$, $p = 0.0136$) and C treatments (Mann–Whitney test, $z = 2.659$, $p = 0.0078$), while no significant difference is found between the TD and C treatments (Mann–Whitney test, $z = 0.289$, $p = 0.7723$). Note. Confidence intervals on means are at 95%.
 
-## Figure 3 Reproducible Results
-
+</div>
+<div class = "col-md-6">
+*Reproduced*
 ```{r Figure 3 Plot, echo=FALSE}
 # Filter the dataset for the Bully Dictator Game
 bully_dictator_game_data <- df %>%
@@ -247,10 +411,7 @@ ggplot(standard_dictator_game_data, aes(x = treatment_group, y = Mean, fill = tr
 ```
 
 ```{r Figure 3 Mean_SD, echo=FALSE}
-# Explain what the Kruskal-Wallis test is applied on
-cat("Mean and SD for the distributions of 'kept' across different treatment groups within the Bully Dictator Game.\n")
-# Print the adjusted data
-print(bully_dictator_game_data)
+kable(bully_dictator_game_data) %>% kable_styling()
 ```
 
 ```{r Figure 3 KW, echo=FALSE}
@@ -284,19 +445,29 @@ cat(sprintf("Mann-Whitney U test for BDG between C and MD, z = %.3f, p = %.4f.\n
 result_C_TD <- wilcox.test(group_TD, group_C)
 z_value_C_TD <- qnorm(1 - result_C_TD$p.value / 2)
 p_value_C_TD <- result_C_TD$p.value
-cat(sprintf("Mann-Whitney U test for BDG between C and TD, z = %.3f, p = %.4f.\n", z_value_C_TD, p_value_C_TD))
-
+sprintf("Mann-Whitney U test for BDG between C and TD, z = %.3f, p = %.4f.\n", z_value_C_TD, p_value_C_TD)
 ```
 
-### Figure 3 and its results match between the research paper and reproducible code
+</div></div>
 
-## Figure 4 Research Paper
+Figure 3 and its results match between the research paper and reproducible code
 
+## Figure 4
+
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
 ![](https://ars.els-cdn.com/content/image/1-s2.0-S2214804323001325-gr4_lrg.jpg)
 
 Authors comments:
 
 > Fig. 4. The amount got by the dictator in the Bully Dictator game is consistently lower than that in the standard Dictator game, but only under Motivated Delay the difference is statistically significant. The average amount the dictator got under Motivated Delay is lower in the Bully variant of the dictator game (M = 30.80, SD = 12.22) than in the standard one (M = 33.61, SD = 15.46). The average amount the dictator got under Time Delay is lower in the Bully variant of the Dictator game (M = 33.28, SD = 12.9) than in the standard one (M = 35.33, SD = 11.24). The average amount the dictator got in the Control treatment is lower in the Bully variant of the dictator game (M = 34.54, SD = 13.17) than in the standard one (M = 36.09, SD = 12.01). However, the difference between the two variants of the dictator game is statistically significant only in the case of Motivated Delay (Mann–Whitney test, $z= 2.595$, $p = 0.0095$).
+
+</div>
+<div class = "col-md-6">
+*Reproduced*
 
 ## Figure 4 Reproducible Results
 
@@ -331,10 +502,7 @@ ggplot(dictator_game_data, aes(x = treatment_group, y = Mean, fill = game_type))
 ```
 
 ```{r Figure 4 Mean_SD, echo=FALSE}
-# Explain what the Kruskal-Wallis test is applied on
-cat("Mean and SD for the distributions of 'kept' across different treatment groups within the Dictator Game.\n")
-# Print the adjusted data
-print(dictator_game_data)
+kable(dictator_game_data) %>% kable_styling()
 ```
 
 ```{r Figure 4 MW, echo=FALSE}
@@ -354,22 +522,20 @@ test_result <- wilcox.test(dg_data, bdg_data)
 z_value <- qnorm(1 - test_result$p.value / 2)  # Convert p-value to z-score
 p_value <- test_result$p.value
 
-# Print test results, include detail on where the test is applied
-cat(sprintf("Mann–Whitney test applied between DG (Standard Dictator Game) and BDG (Bully Dictator Game) under Motivated Delay condition, z = %.3f, p = %.4f.Confidence intervals on means are at 95%%.", z_value, p_value))
-  
+sprintf("Mann–Whitney test applied between DG (Standard Dictator Game) and BDG (Bully Dictator Game) under Motivated Delay condition, z = %.3f, p = %.4f.Confidence intervals on means are at 95%%.", z_value, p_value)
 ```
 
-### Figure 4 and its results match between the research paper and reproducible code
+</div></div>
+
+Figure 4 and its results match between the research paper and reproducible code
 
 ## Figure 5
 
+*Original*
 ![](https://ars.els-cdn.com/content/image/1-s2.0-S2214804323001325-gr5_lrg.jpg)
 
-Authors comment:
+*Reproduced*
 
-> Fig. 5. The elicited norms (a) do not differ under the different cognitive manipulations and the control, (b) do not differ between the standard and the Bully Dictator Game The difference in the means of Empirical Expectations (EE), Normative Beliefs (NB) and Normative Expectations (NE) are not statistically significant neither with respect to cognitive manipulations nor to variants of the dictator game. We only note a mild effect of the cognitive manipulation on NB. EE: C vs TD vs MD, Kruskal–Wallis, $p =  0.3995$; DG vs BDG: Mann–Whitney test, $p =  0.9215$. NB: C vs TD vs MD, Kruskal–Wallis, $p =  0.0789$; DG vs BDG: Mann–Whitney test, $p =  0.4578$. NB: C vs TD vs MD, Kruskal–Wallis, $p =  0.7893$; DG vs BDG: Mann–Whitney test, $p =  0.9358$.
-
-## Figure 5 Reproducible Results 
 ```{r pressure, echo=FALSE}
 # Load the dataset
 data <- read_excel("data_DMDDG.xls")
@@ -400,7 +566,6 @@ data_combined <- data %>%
 
 data_combined$group <- factor(data_combined$group, levels = c("C", "TD", "MD"))
 ```
-
 
 ```{r}
 # Define custom colors
@@ -433,13 +598,22 @@ plot_nb_bully <- create_plot(data, "nb", "bully", "mean of nb", "NB")
 plot_ne_bully <- create_plot(data, "ne", "bully", "mean of ne", "NE")
 
 # Arrange the plots into a single canvas
-top_row <- grid.arrange(plot_ee_combined, plot_nb_combined, plot_ne_combined, ncol = 3)
-bottom_row <- grid.arrange(plot_ee_bully, plot_nb_bully, plot_ne_bully, ncol = 3)
-
-# Arrange all rows into one plot
-final_plot <- grid.arrange(top_row, bottom_row, nrow = 2)
-
+grid.arrange(plot_ee_combined, plot_nb_combined, plot_ne_combined, plot_ee_bully, plot_nb_bully, plot_ne_bully, ncol = 3)
 ```
+
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
+
+Authors comment:
+
+> Fig. 5. The elicited norms (a) do not differ under the different cognitive manipulations and the control, (b) do not differ between the standard and the Bully Dictator Game The difference in the means of Empirical Expectations (EE), Normative Beliefs (NB) and Normative Expectations (NE) are not statistically significant neither with respect to cognitive manipulations nor to variants of the dictator game. We only note a mild effect of the cognitive manipulation on NB. EE: C vs TD vs MD, Kruskal–Wallis, $p =  0.3995$; DG vs BDG: Mann–Whitney test, $p =  0.9215$. NB: C vs TD vs MD, Kruskal–Wallis, $p =  0.0789$; DG vs BDG: Mann–Whitney test, $p =  0.4578$. NB: C vs TD vs MD, Kruskal–Wallis, $p =  0.7893$; DG vs BDG: Mann–Whitney test, $p =  0.9358$.
+
+</div>
+<div class = "col-md-6">
+*Reproduced*
 
 ```{r}
 # Perform statistical tests
@@ -470,11 +644,18 @@ test_results <- bind_rows(kruskal_results, mann_whitney_results)
 print(test_results)
 
 ```
-### Figure 5 the results match the paper 
+
+</div></div>
+
+Figure 5 the results match the paper 
 
 ## Table 3. Tobit regressions of elicited norms on experimental conditions.
 
-Table 3. Tobit regressions of elicited norms on experimental conditions.
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
 
 |                    | (1) EE         | (2) NB         | (3) NE         |
 |--------------------|----------------|----------------|----------------|
@@ -487,13 +668,43 @@ Table 3. Tobit regressions of elicited norms on experimental conditions.
 | **log likelihood** | −3718.3        | −3712.3        | −3736.7        |
 | **N**              | 1022           | 1022           | 1022           |
 
+</div>
+<div class = "col-md-6">
+*Reproduced*
+
+```{r}
+# recode some columns
+df <- df %>% 
+    mutate(BDG = case_when(game_type == "Bully Dictator Game" ~ "BDG", .default = "DG"),
+           BDG = factor(BDG, levels = c("DG", "BDG")),
+           treatment_group_factor = factor(x = treatment_group, levels = c("C", "TD", "MD")))
+
+# create models
+model_list <- lapply(X = c("ee", "nb", "ne"), 
+                     FUN = function(i) fit_tobit(data = df, predictors = c("BDG", "treatment_group_factor"), to_predict = i, limits = list(left = 10, right = 60)))
+# print out
+lapply(X = model_list, FUN = pretty_t_coefftest) %>% 
+    to_frame_multi() %>% 
+    mutate(vars = c("BDG", "TD", "MD", "log likelihood")) %>%
+    kable(col.names = c(" ", "\\(1) EE", "\\(2) NB", "\\(3) NE"), escape = F) %>% 
+    kable_styling()
+```
+
+</div></div>
+
 Authors comments:
 
 > Table 3 reports the estimates for three Tobit regressions where, respectively, EE, NB, and NE are regressed on dummies for the TD, MD and BDG conditions (omitted category is the case of the DG and C conditions). No estimated coefficient of these regressors is significantly different from zero, confirming that EE, NB, and NE are not affected by our experimental conditions.
 
+Figures presented by authors are not exactly matching those from reproducing step: the direction, magnitude and significance are the same and supports authors conclusion, although values are +/- 20% different.
+
 ## Table 4. Tobit regressions of Got on experimental conditions and controls.
 
-Table 4. Tobit regressions of Got on experimental conditions and controls.
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
 
 |                  | (1) Baseline   | (2) Norms         | (3) Right         | (4) Intuitive     |
 |---------------|---------------|---------------|---------------|---------------|
@@ -518,23 +729,54 @@ Table 4. Tobit regressions of Got on experimental conditions and controls.
 | log likelihood   | −3795.5        | −3521.9           | −3507.9           | −3507.1           |
 | N                | 1022           | 1022              | 1019              | 1019              |
 
-Authors comments
+</div>
+<div class = "col-md-6">
+*Reproduced*
 
-> Table 4 reports the results of four Tobit regressions where, respectively, EE, NB, and NE are regressed on dummies for the TD, MD and BDG conditions (omitted category is the case of the DG and C conditions). No estimated coefficient of these regressors is significantly different from zero, confirming that EE, NB, and NE are not affected by our experimental conditions.
+```{r}
+model_list <- list(fit_tobit(data = df, predictors = c("BDG", "treatment_group_factor"), to_predict = "kept", limits = list(left = 10, right = 60)),
+                   fit_tobit(data = df, predictors = c("BDG", "treatment_group_factor", "ee", "nb", "ne"), to_predict = "kept", limits = list(left = 10, right = 60)),
+                   fit_tobit(data = df, predictors = c("BDG", "treatment_group_factor", "ee", "nb", "ne", "crt_right", "female", "household_income"), to_predict = "kept", limits = list(left = 10, right = 60)))
+df$crt_right_copy <- df$crt_right
+df$crt_right <- df$crt_int
+model_list[[4]] <- fit_tobit(data = df, predictors = c("BDG", "treatment_group_factor", "ee", "nb", "ne", "crt_right", "female", "household_income"), to_predict = "kept", limits = list(left = 10, right = 60))
+df$crt_right <- df$crt_right_copy
+
+oo <- to_frame_multi(lapply(X = model_list, FUN = pretty_t_coefftest))
+oo[is.na(oo)] <- ""
+names(oo) <- c("vars", "dsa", "dsadsad", "da", "dsaew1q")
+reorder_rename(tbl_ = oo, named_vector = vars_final) %>% 
+    kable(col.names = c(" ", "\\(1) Baseline", "\\(2) NB", "\\(3) NE", "\\(4) Intuitive"), escape = F) %>% 
+    kable_styling()
+```
+
+</div></div>
+
+Authors comments
 
 > In model (1), and consistently in the other three models, we find a negative and significant effect of BDG and MD on Got.
 
+Similarly to previous model: the direction, magnitude and significance are the same, values not.
+
 > In model (2), both EE and NB have a positive and statistically significant coefficient, while both TD and NE have a negative and not statistically significant coefficient.
+
+Regarding EE, NB and TD reproduced results are similar (the direction, magnitude and significance are the same, values not). Regarding NE - in our case the standard error term is smaller so NE coefficient is significant at alfa = 10%.
 
 > In model (3), the estimated coefficient of CRT right is positive and statistically significant, suggesting that dictators who are more inclined to reflection tend to get more.
 
+Reproduced results are similar (the direction, magnitude and significance are the same, values not).
+
 > In model (4), the coefficient CRT int is negative and statistically significant, suggesting that dictators who are less inclined to reflection tend to get less.
+
+Reproduced results are similar (the direction, magnitude and significance are the same, values not).
 
 > Lastly, socio-demographic characteristics (sex and household income) do not seem to affect the dictator’s decision in either model.
 
+Reproduced results are similar (the direction, and significance are the same, values and magnitude not).
+
 # Reproducing results - droput analyses
 
-## In this section, a smaller dataset is created and it is verified if the dropout phenomenon is making any difference in terms of analysis
+In this section, a smaller dataset is created and it is verified if the dropout phenomenon is making any difference in terms of analysis
 
 > This piece of code shortens the dataset for specific conditions and data observations. 
 > Frequency tables for these new variables are generated to examine their distributions.
@@ -542,8 +784,7 @@ Authors comments
 
 
 
-## Replicating  the drop_general variable to see how many instances are dropped generally
-### when the indicator == 1; this means the individual has dropped from experiment
+Replicating  the drop_general variable to see how many instances are dropped generally when the indicator == 1; this means the individual has dropped from experiment
 
 > table(data$drop_general)
 
@@ -551,8 +792,7 @@ Authors comments
 1014  |  6 
 
 
-## Replicating the drop_on_task variable to see how many instances are dropped on task
-### when the indicator == 1; this means the individual has dropped from experiment
+Replicating the drop_on_task variable to see how many instances are dropped on task when the indicator == 1; this means the individual has dropped from experiment
 
 > table(data$drop_on_task)
 
@@ -560,19 +800,25 @@ Authors comments
 1014  |  6
 
 
-# Authors comments:
+Authors comments:
 
 > The occurrence of dropouts is one of the limitations of the online experimental setting. However, this occurrence is rare in our experiment (3.13 percent drop out from the experiment overall and only 1.80 percent during the task) and, at least to some extent, it can be ascribed to exogenous factors.
 
-# Replication:
-> As per author's observation, we also see that such findings are not washed out by controlling for elicited variables,
-> which in turn appear not to be affected by the experimental conditions.
-> beceuase the both the overall drop_general rate and drop_on_task are estimated to be very low and not affecting the experiment.
+Replication:
+
+> As per author's observation, we also see that such findings are not washed out by controlling for elicited variables, which in turn appear not to be affected by the experimental conditions.
+> Beceuase the both the overall drop_general rate and drop_on_task are estimated to be very low and not affecting the experiment.
 
 
 # Reproducing results - Further statistical analyses
 
-## B.1 Effectiveness of cognitive manipulation (fig. 1) (Research Paper)
+## B.1 Effectiveness of cognitive manipulation (fig. 1)
+
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
 
 ![](figures/b1fig1.png)
 
@@ -580,7 +826,9 @@ Authors comments
 
 > Figure 1: Self-reported reflection is not statistically different across the treatments for the cognitive manipulations. The average of self-reported reflection in the Motivated Delay treatment (M=8.79, SD=1.85) is 0.32 points higher than that in the Control treatment (M=8.47, SD=2.05) and 0.07 points higher than that in the Time Delay treatment (M=8.72, SD=1.86).
 
-## B.1 Effectiveness of cognitive manipulation (fig. 1) (Reproducible Results)
+</div>
+<div class = "col-md-6">
+*Reproduced*
 
 ```{r B1 Figure 1 Plot, echo=FALSE}
 # Calculating means and standard errors for each moc/treatment_group for Attention:
@@ -621,10 +869,7 @@ attention_data <- df %>%
   # Arrange the data in descending order and set the factor levels based on this order
   arrange(Mean_Got) %>%
   mutate(treatment_group = factor(treatment_group, levels = unique(treatment_group)))
-
-# Print the adjusted data
-print(attention_data)
-  
+kable(attention_data) %>% kable_styling()
 ```
 
 ```{r B1 Figure 1 KW_MW, echo=FALSE}
@@ -657,9 +902,17 @@ cat(sprintf("Mann-Whitney U test for attention between C and TD, z = %.3f, p = %
   
 ```
 
-### B.1(Figure 1) and its results match between the research paper and reproducible code
+</div></div>
 
-## B.1 Effectiveness of cognitive manipulation (fig. 2) (Research Paper)
+B.1(Figure 1) and its results match between the research paper and reproducible code
+
+## B.1 Effectiveness of cognitive manipulation (fig. 2)
+
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
 
 ![](figures/b1fig2.png)
 
@@ -667,7 +920,9 @@ Authors comment:
 
 > Figure 2: Subjects spent more time on the task screen in the Time Delay and Motivated Delay treatments than in the Control Treatment; and more time in the Motivated Delay treatment than in the Time Delay treatment. The average of seconds spent on the task screen in the Motivated Delay treatment (M=101.93, SD=74.71) is 26,39 seconds higher than those spent in the Time Delay (M=75.54, SD=77.37), which are in turn 44,67 seconds higher than the average of seconds spent on the task screen in the Control treatment (M= 30.87, SD= 133.71).
 
-## B.1 Effectiveness of cognitive manipulation (fig. 2) (Reproducible Results)
+</div>
+<div class = "col-md-6">
+*Reproduced*
 
 ```{r B1 Figure 2 Plot, echo=FALSE}
 time_spent_means <- df %>%
@@ -686,7 +941,6 @@ ggplot(time_spent_means, aes(x = treatment_group, y = Mean, fill = as.factor(tre
   labs(title = "B.1 Effectiveness of cognitive manipulation (Figure 2)", y = "Mean of seconds", x = NULL, fill="")  +
   scale_fill_manual(values = c("C" = "#1A476F", "TD" = "#90353B", "MD" = "#55752F")) +
   theme(plot.title = element_text(hjust = 0.5), legend.position = "top")
-
 ```
 
 ```{r B1 Figure 2 Mean_SD, echo=FALSE}
@@ -708,10 +962,7 @@ seconds_data <- df %>%
   arrange(Mean_Got) %>%
   mutate(treatment_group = factor(treatment_group, levels = unique(treatment_group)))
 
-# Print the adjusted data
-cat("Table for Mean and SD for seconds on task:\n")
-print(seconds_data)
-  
+kable(seconds_data) %>% kable_styling()
 ```
 
 ```{r B1 Figure 2 KW_MW, echo=FALSE}
@@ -743,9 +994,17 @@ cat("C vs TD for seconds on task: W =", time_spent_result_C_TD$statistic, ", p =
 
 ```
 
-### B.1(Figure 2) and its results match between the research paper and reproducible code 
+</div></div>
+
+B.1(Figure 2) and its results match between the research paper and reproducible code 
 
 ## B.2 Multiple hypothesis adjustments
+
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
 
 Table 1: Control for multiple hypothesis testing using Benjamini and Hochberg (1995)
 
@@ -761,7 +1020,62 @@ Table 1: Control for multiple hypothesis testing using Benjamini and Hochberg (1
 | (TD) NB vs B                         | 0.1997    | 0.3645     |
 | (MD) NB vs B                         | 0.0095    | 0.0408     |
 
+</div>
+<div class = "col-md-6">
+*Reproduced*
+
+```{r mult_hyp_adj}
+# pvalues used by authors
+authors_p_values <- c(0.7654, 0.4206, 0.2735, 0.7723, 0.0136, 0.0078, 0.2025, 0.1997, 0.0095)
+# pvalues reported as adjusted by authors using Benjamini Hochberg 95 method
+reported_adjusted_reported_p_values <- c(0.7723, 0.5401, 0.4103, 0.7723, 0.0408, 0.0408, 0.3645, 0.3645, 0.0408)
+# pvalues adjusted using Benjamini Hochberg 95 method based on pvalues provided by authors
+adjusted_reported_values <- p.adjust(authors_p_values, method = "BH")
+
+# our pvalues
+our_pvalues <- list(
+    `(NB) C vs TD` = do_mann_whitney(df %>% filter(bully_type == "NB"), "treatment_group", "C", "TD", "kept")$p.value,
+    `(NB) TD vs MD` = do_mann_whitney(df %>% filter(bully_type == "NB"), "treatment_group", "TD", "MD", "kept")$p.value,
+    `(NB) C vs MD` = do_mann_whitney(df %>% filter(bully_type == "NB"), "treatment_group", "C", "MD", "kept")$p.value,
+    `\\(B) C vs TD` = do_mann_whitney(df %>% filter(bully_type == "B"), "treatment_group", "C", "TD", "kept")$p.value,
+    `\\(B) TD vs MD` = do_mann_whitney(df %>% filter(bully_type == "B"), "treatment_group", "TD", "MD", "kept")$p.value,
+    `\\(B) C vs MD` = do_mann_whitney(df %>% filter(bully_type == "B"), "treatment_group", "C", "MD", "kept")$p.value,
+    `\\(C) NB vs B` = do_mann_whitney(df %>% filter(treatment_group == "C"), "bully_type", "B", "NB", "kept")$p.value,
+    `(TD) NB vs B` = do_mann_whitney(df %>% filter(treatment_group == "TD"), "bully_type", "B", "NB", "kept")$p.value,
+    `\\(MD) NB vs B` = do_mann_whitney(df %>% filter(treatment_group == "MD"), "bully_type", "B", "NB", "kept")$p.value
+)
+
+# our adjusted pvalues
+our_adj_pv <- p.adjust(unlist(our_pvalues), method = "BH")
+
+# print the results
+kable(x = data.frame(vars = names(our_pvalues),
+                     authors_p_values = authors_p_values, 
+                     reported_adjusted_reported_p_values = reported_adjusted_reported_p_values, 
+                     adjusted_reported_values = round(adjusted_reported_values,4),
+                     our_pvalues = round(unlist(our_pvalues), 4),
+                     our_adj_pv = round(our_adj_pv, 4), 
+                     row.names = NULL), 
+      caption = "Control for multiple hypothesis testing using Benjamini and Hochberg (1995)", 
+      col.names = c("Dependent variable: Got hypothesis", "(p-value)", "(adjusted)", "(adjusted p-values)", "(our-pvalues)", "(our adj p values)")) %>% 
+    kable_styling()
+```
+
+</div></div>
+
+Comment: 
+
+- there is a difference between adjusted p-values reported in paper and adjustment based on the reported pvalues for (NB) TD vs MD group (0.5401 vs 0.5408) and (NB) C vs MD group (0.4103 vs 0.4102)
+- there is a slight difference in pvalues for Mann-Whitey test reported in paper and based on our calculations. This difference however is small, on the fourth digits, and it does not change the conclusions
+- adjusting our p-values yields similar results to adjusted p-values reported in paper.
+
 ## B.3 Regressions with self-reported attention
+
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
 
 Table 2: Tobit regressions of Got on experimental condition ’(no) bully’ and ’self-reported attention’
 
@@ -779,7 +1093,32 @@ Table 2: Tobit regressions of Got on experimental condition ’(no) bully’ and
 |           |                 | (0.0529) [0.135]    |
 | N         | 1022            | 1022                |
 
+</div>
+<div class = "col-md-6">
+*Reproduced*
+
+```{r}
+model_list <- list(fit_tobit(data = df, predictors = c("BDG", "attention"), to_predict = "kept", limits = list(left = 10, right = 60)),
+                   fit_tobit(data = df, predictors = c("BDG", "attention", "ee", "nb", "ne"), to_predict = "kept", limits = list(left = 10, right = 60)))
+oo <- to_frame_multi(lapply(X = model_list, FUN = pretty_t_coefftest))
+oo[is.na(oo)] <- ""
+
+reorder_rename(tbl_ = oo, named_vector = vars_final) %>% 
+    kable( 
+        caption = "Table 2: Tobit regressions of Got on experimental condition ’(no) bully’ and ’self-reported attention’", 
+        col.names = c(" ", "\\(1)", "\\(2)"), escape = F) %>% 
+    kable_styling()
+```
+
+</div></div>
+
 ## B.4 Regressions by version of the dictator game
+
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
 
 Table 3: Tobit regressions of Got on experimental condition “cognitive manipulation” and norms, by version of the dictator game
 
@@ -803,75 +1142,83 @@ Table 3: Tobit regressions of Got on experimental condition “cognitive manipul
 |       |                    | (0.133) [0.007]    |                    | (0.265) [0.711]    |
 | N     | 509                | 509                | 513                | 513                |
 
-## Table 3 Reproducible Results
+</div>
+<div class = "col-md-6">
+*Reproduced*
+
 ```{r}
-data$ee <- as.numeric(data$ee) / 100
-data$nb <- as.numeric(data$nb) / 100
-data$ne <- as.numeric(data$ne) / 100
-data$Got <- as.numeric(data$kept) / 100
+df$MD <- ifelse(df$moc2 == 1, 1, 0)
+df$TD <- ifelse(df$treatment_group == "TD", 1, 0)
 
-# Define a function to fit Tobit models
-fit_tobit <- function(data, predictors, interaction = FALSE) {
-  if (interaction) {
-    formula <- as.formula(paste("Got ~", paste(predictors, collapse = " + "), "+", paste(paste("MD *", predictors[3:length(predictors)]), collapse = " + ")))
-  } else {
-    formula <- as.formula(paste("Got ~", paste(predictors, collapse = " + ")))
-  }
-  model <- tobit(formula, data = data, left = 0.10, right = 0.60)
-  return(model)
-}
+model_list <- list(
+    fit_tobit(data = df %>% filter(BDG == "DG"), predictors = c("TD", "MD", "ee", "nb", "ne"), to_predict = "kept", limits = list(left = 10, right = 60)),
+    fit_tobit(data = df %>% filter(BDG == "DG"), predictors = c("TD", "MD", "ee", "nb", "ne"), to_predict = "kept", interaction = T, limits = list(left = 10, right = 60)),
+    fit_tobit(data = df %>% filter(BDG == "BDG"), predictors = c("TD", "MD", "ee", "nb", "ne"), to_predict = "kept", limits = list(left = 10, right = 60)),
+    fit_tobit(data = df %>% filter(BDG == "BDG"), predictors = c("TD", "MD", "ee", "nb", "ne"), to_predict = "kept", interaction = T, limits = list(left = 10, right = 60)))
 
-# Define predictors
-predictors <- c("TD", "MD", "ee", "nb", "ne")
-
-# Fit models
-results_dg_no_interaction <- fit_tobit(data[data$bully == "DG", ], predictors, interaction = FALSE)
-results_dg_interaction <- fit_tobit(data[data$bully == "DG", ], predictors, interaction = TRUE)
-results_bdg_no_interaction <- fit_tobit(data[data$bully == "BDG", ], predictors, interaction = FALSE)
-results_bdg_interaction <- fit_tobit(data[data$bully == "BDG", ], predictors, interaction = TRUE)
-
-# Summarize results
-summary_dg_no_interaction <- summary(results_dg_no_interaction)
-summary_dg_interaction <- summary(results_dg_interaction)
-summary_bdg_no_interaction <- summary(results_bdg_no_interaction)
-summary_bdg_interaction <- summary(results_bdg_interaction)
-
-# Get unique set of coefficient names
-coef_names <- unique(c(
-  rownames(summary_dg_no_interaction$coefficients),
-  rownames(summary_dg_interaction$coefficients),
-  rownames(summary_bdg_no_interaction$coefficients),
-  rownames(summary_bdg_interaction$coefficients)
-))
-
-# Function to extract coefficients, standard errors, and p-values, filling missing with NA
-extract_model_summary <- function(model_summary, coef_names) {
-  coef_df <- as.data.frame(matrix(NA, nrow = length(coef_names), ncol = 4))
-  rownames(coef_df) <- coef_names
-  colnames(coef_df) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
-  matching_indices <- match(rownames(model_summary$coefficients), coef_names)
-  coef_df[matching_indices, ] <- model_summary$coefficients
-  return(coef_df)
-}
-
-# Extract summaries for all models
-summary_dg_no_interaction_df <- extract_model_summary(summary_dg_no_interaction, coef_names)
-summary_dg_interaction_df <- extract_model_summary(summary_dg_interaction, coef_names)
-summary_dg_no_interaction_df
-summary_dg_interaction_df
+pp <- matrix(sapply(X = c("DG", "DG", "BDG", "BDG"), FUN = function(i) sum(df$BDG == i)), nrow = 1)
+pp <- cbind(data.frame(vars = "N"), pp)
+oo <- to_frame_multi(lapply(X = model_list, FUN = pretty_t_coefftest))
+oo[is.na(oo)] <- ""
+names(oo) <- c("vars", sprintf("col_%s", letters[1:4]))
+names(pp) <- c("vars", sprintf("col_%s", letters[1:4]))
+reorder_rename(tbl_ = oo, named_vector = c("TD" = "TD", "MD" = "MD", "ee" = "EE", "nb" = "NB", "ne" = "NE", "MD:ee" = "MDxEE", "MD:ne" = "MDxNE", "MD:nb" = "MDxNB")) %>% 
+    rbind(pp) %>% 
+    kable( 
+        caption = "Table 3: Tobit regressions of Got on experimental condition “cognitive manipulation” and norms, by version of the dictator game", 
+        col.names = c(" ", "\\(1) DG", "\\(2) DG", "\\(3) BDG", "\\(4) BDG"), escape = F) %>% 
+    kable_styling()
 ```
 
-Table 3 the results have differences with the paper
+</div></div>
+
+Reproduced results are similar (the direction, magnitude and significance are the same, values not).
 
 ## B.5 Frequencies of Got by treatment and Hurdle models - figure
 
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
+
 ![](figures/b5.png)
 
-Authors comment
+</div>
+<div class = "col-md-6">
+*Reproduced*
+
+```{r got_hist}
+df %>% group_by(bully_type, treatment_group, kept) %>% 
+    summarise(pp = n(), .groups = 'drop') %>% 
+    group_by(bully_type, treatment_group) %>% 
+    mutate(nn = sum(pp), pp2 = pp/nn) %>%
+    ungroup() %>% 
+    ggplot() +
+    geom_col(aes(x = kept, y = pp2)) +
+    labs(x = "got", y = "Percent") +
+    scale_y_continuous(labels = scales::percent) +
+    facet_wrap(~bully_type + treatment_group) + theme_minimal()
+```
+
+</div></div>
+
+Authors comment:
 
 > The data reveals that there are peaks in the distribution where dictators keep everything for themselves, although these peaks are relatively low. This finding suggests that a Hurdle model may be worth considering.
 
+Our comment:
+
+- there is slight difference comparing reported histograms to our histogram
+- this difference however does not change conclusion regarding need to consider Hurdle model
+
 ## B.5 Frequencies of Got by treatment and Hurdle models - table
+
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
 
 Table 4: Hurdle regressions of Give (Endowment-Got).
 
@@ -917,10 +1264,79 @@ Table 4: Hurdle regressions of Give (Endowment-Got).
 |                  |                  | (0.00676) [0.025]   |                  | (0.00686) [0.031]   |
 | N                | 1019             | 1019                | 1019             | 1019                |
 
+</div>
+<div class = "col-md-6">
+*Reproduced*
+
+```{r hurdle}
+# Declaring models
+h1 <- hurdle(formula = give ~ game_type + treatment_group + crt_right + as.factor(female) + household_income, data = df)
+h2 <- hurdle(formula = give ~ game_type + treatment_group + crt_right + as.factor(female) + household_income + ee + nb + ne, data = df)
+h3 <- hurdle(formula = give ~ game_type + treatment_group + crt_int + as.factor(female) + household_income, data = df)
+h4 <- hurdle(formula = give ~ game_type + treatment_group + crt_int + as.factor(female) + household_income + ee + nb + ne, data = df)
+
+# Printing results for count part
+kable(x = to_frame_multi(lapply(list(h1, h2, h3, h4), function(x) pretty_t(summary(x)$coefficients$count))),
+      col.names = c("Variable", "right", "right", "intuitive", "intuitive"), caption = "First hurdle", escape = F) %>%
+    kable_styling()
+```
+
+```{r}
+# Printing results for zero part
+kable(x = to_frame_multi(lapply(list(h1, h2, h3, h4), function(x) pretty_t(summary(x)$coefficients$zero))), 
+      col.names = c("Variable", "right", "right", "intuitive", "intuitive"), caption = "Second hurdle", escape = F) %>% 
+    kable_styling()
+```
+</div></div>
+
 ## B.6 CRT types
 
+<div class = "row">
+  
+<div class = "col-md-6">
+
+*Original*
+
 ![](figures/b6.png)
+</div>
+
+<div class = "col-md-6">
+*Reproduced*
+```{r}
+df$crt_type <- ifelse(df$crt_right >= 4, "Reflective",
+                      ifelse(df$crt_right <= 2, "Impulsive", "Residuals"))
+df$crt_type <- factor(df$crt_type, levels = c("Reflective", "Impulsive", "Residuals"))
+
+pop_kw <- kruskal.test(crt_type ~ kept, df)
+
+df %>%
+    group_by(crt_type) %>%
+    summarise(Mean = mean(kept, na.rm = TRUE),
+              SE = sd(kept, na.rm = TRUE) / sqrt(n())) %>% 
+    ggplot(aes(x = crt_type, y = Mean, fill = as.factor(crt_type))) +
+    geom_col(stat = "identity", position = position_dodge()) +
+    geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE), width = 0.05) +
+    theme_minimal() +
+    labs(x = NULL, y = "mean of Got", fill = NULL) +
+    scale_fill_brewer(palette = "Red") +
+    coord_cartesian(ylim = c(25, 40), expand =  F) +
+    theme(legend.position = c(0.5, .95), legend.direction = "horizontal") +
+    # Annotating tests results
+    annotate(geom = "text", x = 1.5, y = 30.5, label = round(do_mann_whitney(df, "crt_type", "Reflective", "Impulsive", "kept")$p.value, 4)) +
+    annotate(geom = "segment", x = "Reflective", xend = "Impulsive", y = 30, yend = 30) +
+    annotate(geom = "text", x = 2.5, y = 27.5, label = round(do_mann_whitney(df, "crt_type", "Impulsive", "Residuals", "kept")$p.value, 4)) +
+    annotate(geom = "segment", x = "Impulsive", xend = "Residuals", y = 27, yend = 27) +
+    annotate(geom = "text", x = 2, y = 25.75, label = round(do_mann_whitney(df, "crt_type", "Reflective", "Residuals", "kept")$p.value, 4)) +
+    annotate(geom = "segment", x = "Reflective", xend = "Residuals", y = 25.25, yend = 25.25) +
+    annotate(geom = "text", x = 3, y = 37, label = sprintf("Population KW\np = %s, χ² = %s", round(pop_kw$p.value, 4), round(pop_kw$statistic, 4)))
+```
+</div></div>
 
 Authors comment
 
 > Our findings were consistent with (...), as Reflective individuals tended to allocate more for themselves. However, we did not observe any significant differences in behavior between Impulsive Dictators and the Residuals.
+
+Comment:
+
+- population KW results is similar to presented in the paper
+- Manney-Whitney results are significantly different than those presented in the paper
