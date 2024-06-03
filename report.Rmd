@@ -8,9 +8,19 @@ output:
         theme: yeti
 ---
 
+# Loading Data
+
+```{r Loading Data}
+link_to_data <- "https://osf.io/download/uh4z7/?view_only=de730bd958ef4711819216d30361c8d8"
+file_to_save <- "data_DMDDG.xls"
+
+if (!file.exists(file_to_save)) download.file(url = link_to_data, destfile = file_to_save)
+df <- read_xls(file_to_save)
+
+head(df)
+```
+
 # Introduction
-
-
 
 # Data preparation
 
@@ -35,7 +45,7 @@ library(pscl)
 ```{r Functions}
 #' Perform Mann-Whitney U test
 #'
-#' @param df_ data.frame
+#' @param df data.frame
 #' @param group_column_name name of column with groups
 #' @param group_1_name name of first group
 #' @param group_2_name name of second group
@@ -46,9 +56,9 @@ library(pscl)
 #'
 #' @examples
 #' do_mann_whitney(mtcars, "cyl", "4", "6", "mpg")
-do_mann_whitney <- function(df_, group_column_name, group_1_name, group_2_name, value_name) {
-    y1 <- df_[df_[[group_column_name]] == group_1_name, ][[value_name]]
-    y2 <- df_[df_[[group_column_name]] == group_2_name, ][[value_name]]
+do_mann_whitney <- function(df, group_column_name, group_1_name, group_2_name, value_name) {
+    y1 <- df[df[[group_column_name]] == group_1_name, ][[value_name]]
+    y2 <- df[df[[group_column_name]] == group_2_name, ][[value_name]]
     wilcox.test(y1, y2)
 }
 
@@ -141,7 +151,7 @@ fit_tobit <- function(data, predictors, to_predict = "Got", interaction = FALSE,
     if (interaction) {
         model_formula <- sprintf("%s+%s", model_formula, paste(paste("MD *", predictors[3:length(predictors)]), collapse = " + "))
     }
-    model <- tobit(as.formula(model_formula), data = data, left = limits$left, right = limits$right)
+    model <- tobit(as.formula(model_formula), data = df, left = limits$left, right = limits$right)
     return(model)
 }
 
@@ -160,15 +170,6 @@ vars_final <- c("BDGBDG" = "BDG", "attention" = "ATTENTION",
                 "log likelihood" = "log likelihood")
 ```
 
-```{r Loading Data}
-link_to_data <- "https://osf.io/download/uh4z7/?view_only=de730bd958ef4711819216d30361c8d8"
-file_to_save <- "data_DMDDG.xls"
-
-if (!file.exists(file_to_save)) download.file(url = link_to_data, destfile = file_to_save)
-df <- read_xls(file_to_save)
-
-head(df)
-```
 
 # Reproducing results - main article
 
@@ -537,27 +538,25 @@ Figure 4 and its results match between the research paper and reproducible code
 *Reproduced*
 
 ```{r pressure, echo=FALSE}
-# Load the dataset
-data <- read_excel("data_DMDDG.xls")
 
 # Convert necessary columns to factors
-data$moc <- factor(data$moc, levels = c(0, 1), labels = c("C", "TD"))
-data$moc1 <- factor(data$moc1, levels = c(0, 1), labels = c("C", "TD"))
-data$moc2 <- factor(data$moc2, levels = c(0, 1), labels = c("C", "MD"))
-data$bully <- factor(data$bully, levels = c(0, 1), labels = c("DG", "BDG"))
+df$moc <- factor(df$moc, levels = c(0, 1), labels = c("C", "TD"))
+df$moc1 <- factor(df$moc1, levels = c(0, 1), labels = c("C", "TD"))
+df$moc2 <- factor(df$moc2, levels = c(0, 1), labels = c("C", "MD"))
+df$bully <- factor(df$bully, levels = c(0, 1), labels = c("DG", "BDG"))
 
 # make the mean as numeric 
-data$ee <- as.numeric(data$ee)
-data$nb <- as.numeric(data$nb)
-data$ne <- as.numeric(data$ne)
+df$ee <- as.numeric(df$ee)
+df$nb <- as.numeric(df$nb)
+df$ne <- as.numeric(df$ne)
 
 # Create variables for treatment types
-data$BDG <- ifelse(data$bully == "BDG", 1, 0)
-data$TD <- ifelse(data$moc1 == "TD", 1, 0)
-data$MD <- ifelse(data$moc2 == "MD", 1, 0)
+df$BDG <- ifelse(df$bully == "BDG", 1, 0)
+df$TD <- ifelse(df$moc1 == "TD", 1, 0)
+df$MD <- ifelse(df$moc2 == "MD", 1, 0)
 
 # Combine moc, moc1, moc2 into a single column 
-data_combined <- data %>%
+data_combined <- df %>%
   mutate(group = case_when(
     moc == "C" ~ "C",
     moc1 == "TD" ~ "TD",
@@ -593,9 +592,9 @@ plot_nb_combined <- create_plot(data_combined, "nb", "group", "mean of nb", "NB"
 plot_ne_combined <- create_plot(data_combined, "ne", "group", "mean of ne", "NE")
 
 # Create individual plots for EE, NB, NE norms by 'bully'
-plot_ee_bully <- create_plot(data, "ee", "bully", "mean of ee", "EE")
-plot_nb_bully <- create_plot(data, "nb", "bully", "mean of nb", "NB")
-plot_ne_bully <- create_plot(data, "ne", "bully", "mean of ne", "NE")
+plot_ee_bully <- create_plot(df, "ee", "bully", "mean of ee", "EE")
+plot_nb_bully <- create_plot(df, "nb", "bully", "mean of nb", "NB")
+plot_ne_bully <- create_plot(df, "ne", "bully", "mean of ne", "NE")
 
 # Arrange the plots into a single canvas
 grid.arrange(plot_ee_combined, plot_nb_combined, plot_ne_combined, plot_ee_bully, plot_nb_bully, plot_ne_bully, ncol = 3)
@@ -623,9 +622,9 @@ kruskal_nb <- kruskal.test(nb ~ group, data = data_combined)
 kruskal_ne <- kruskal.test(ne ~ group, data = data_combined)
 
 # Mann-Whitney tests for DG vs BDG
-mann_whitney_ee <- wilcox.test(ee ~ bully, data = data)
-mann_whitney_nb <- wilcox.test(nb ~ bully, data = data)
-mann_whitney_ne <- wilcox.test(ne ~ bully, data = data)
+mann_whitney_ee <- wilcox.test(ee ~ bully, data = df)
+mann_whitney_nb <- wilcox.test(nb ~ bully, data = df)
+mann_whitney_ne <- wilcox.test(ne ~ bully, data = df)
 
 # Print results
 kruskal_results <- data.frame(
@@ -786,7 +785,7 @@ In this section, a smaller dataset is created and it is verified if the dropout 
 
 Replicating  the drop_general variable to see how many instances are dropped generally when the indicator == 1; this means the individual has dropped from experiment
 
-> table(data$drop_general)
+> table(df$drop_general)
 
    0  |  1 
 1014  |  6 
@@ -794,7 +793,7 @@ Replicating  the drop_general variable to see how many instances are dropped gen
 
 Replicating the drop_on_task variable to see how many instances are dropped on task when the indicator == 1; this means the individual has dropped from experiment
 
-> table(data$drop_on_task)
+> table(df$drop_on_task)
 
    0  |  1 
 1014  |  6
