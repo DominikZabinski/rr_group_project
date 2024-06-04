@@ -7,22 +7,7 @@ output:
         toc_float: true
         theme: yeti
 ---
-
-# Loading Data
-
-```{r Loading Data}
-link_to_data <- "https://osf.io/download/uh4z7/?view_only=de730bd958ef4711819216d30361c8d8"
-file_to_save <- "data_DMDDG.xls"
-
-if (!file.exists(file_to_save)) download.file(url = link_to_data, destfile = file_to_save)
-df <- read_xls(file_to_save)
-
-head(df)
-```
-
-# Introduction
-
-# Data preparation
+# Loading Libraries
 
 ```{r Settings & Loading Packages, echo = FALSE, warning = FALSE, message=FALSE}
 # Settings
@@ -41,6 +26,24 @@ library(gridExtra)
 library(kableExtra)
 library(pscl)
 ```
+
+# Loading Data
+
+```{r Loading Data}
+link_to_data <- "https://osf.io/download/uh4z7/?view_only=de730bd958ef4711819216d30361c8d8"
+file_to_save <- "data_DMDDG.xls"
+
+if (!file.exists(file_to_save)) download.file(url = link_to_data, destfile = file_to_save)
+df <- read_xls(file_to_save)
+
+head(df)
+```
+
+# Introduction
+
+# Data preparation
+
+
 
 ```{r Functions}
 #' Perform Mann-Whitney U test
@@ -423,9 +426,9 @@ print("Kruskal-Wallis test for Bully Dictator Game:")
 print(kruskal_BDG)
 
 # Perform Mann-Whitney U test for BDG choice
-group_C <- BDG[BDG$treatment_group == "C", "kept"]$kept
-group_TD <- BDG[BDG$treatment_group == "TD", "kept"]$kept
-group_MD <- BDG[BDG$treatment_group == "MD", "kept"]$kept
+group_C <- BDG[BDG$treatment_group == "C", "kept"]
+group_TD <- BDG[BDG$treatment_group == "TD", "kept"]
+group_MD <- BDG[BDG$treatment_group == "MD", "kept"]
 
 # Perform Mann-Whitney U test between TD and MD for BDG
 # This test compares the distribution of 'kept' between TD and MD within the Bully Dictator Game
@@ -877,9 +880,9 @@ print("Kruskal-Wallis test for Attention:")
 print(kruskal_attention)
 
 # Filter data for treatment groups
-group_C <- df[df$treatment_group == "C", "attention"]$attention
-group_TD <- df[df$treatment_group == "TD", "attention"]$attention
-group_MD <- df[df$treatment_group == "MD", "attention"]$attention
+group_C <- df[df$treatment_group == "C", "attention"]
+group_TD <- df[df$treatment_group == "TD", "attention"]
+group_MD <- df[df$treatment_group == "MD", "attention"]
 
 # Perform Mann-Whitney U test between TD and MD
 result_TD_MD <- wilcox.test(group_TD, group_MD)
