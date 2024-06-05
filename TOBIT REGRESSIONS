@@ -1,0 +1,85 @@
+# Installing the libraries
+
+library(censReg)
+library(broom)
+library(dplyr)
+library(tidyr)
+library(readxl)
+
+
+# Reading data ----
+link_to_data <- "https://osf.io/download/uh4z7/?view_only=de730bd958ef4711819216d30361c8d8"
+file_to_save <- "data_DMDDG.xls"
+
+if (!file.exists(file_to_save)) download.file(url = link_to_data, destfile = file_to_save)
+
+
+df_ <- read_xls(file_to_save)
+
+
+# Tobit regression models with the specified conditions
+
+# Tobit regression modelsis a specialized statistical model designed to handle scenarios where the dependent variable is censored. Censoring occurs when the variable of interest is only observable within a certain range.
+# This type of model is essential for accurately analyzing data where traditional regression techniques may fall short due to the limitations imposed by censoring.
+
+
+# Model 1
+tobit_model1 <- censReg(kept ~ bully + attention, left = 0, right = 60, data = df_, subset = NULL, method = "BFGS")
+
+# Model 2
+tobit_model2 <- censReg(kept ~ bully + attention + ee + nb + ne, left = 0, right = 60, data = df_, subset = NULL, method = "BFGS")
+
+# Model 3
+tobit_model3 <- censReg(kept ~ moc1 + moc2 + ee + nb + ne, left = 0, right = 60, data = subset(df_, bully == 0), subset = NULL, method = "BFGS")
+
+# Model 4,
+tobit_model4 <- censReg(kept ~ moc1 + moc2:ee + moc2:ne + moc2:nb, left = 0, right = 60, data = subset(df_, bully == 0), subset = NULL, method = "BFGS")
+
+# Model 5
+tobit_model5 <- censReg(kept ~ moc1 + moc2 + ee + nb + ne, left = 0, right = 60, data = subset(df_, bully == 1), subset = NULL, method = "BFGS")
+
+# Model 6
+tobit_model6 <- censReg(kept ~ moc1 + moc2:ee + moc2:ne + moc2:nb, left = 0, right = 60, data = subset(df_, bully == 1), subset = NULL, method = "BFGS")
+
+
+extract_tobit_info <- function(model) {
+  tidy_model <- tidy(model)
+  glance_model <- glance(model)
+  coefficients <- tidy_model %>%
+    select(term, estimate)
+  return(list(coefficients = coefficients))
+}
+
+# Extract information from each Tobit model
+model_info <- list(
+  Model_1 = extract_tobit_info(tobit_model1),
+  Model_2 = extract_tobit_info(tobit_model2),
+  Model_3 = extract_tobit_info(tobit_model3),
+  Model_4 = extract_tobit_info(tobit_model4),
+  Model_5 = extract_tobit_info(tobit_model5),
+  Model_6 = extract_tobit_info(tobit_model6)
+)
+
+
+# Create Reshape dataframe and print
+coefficients_df <- bind_rows(lapply(model_info, function(x) x$coefficients), .id = "Model")
+
+coefficients_df_wide <- spread(coefficients_df, term, estimate)
+print(coefficients_df_wide)
+
+cf <-data.frame(coefficients_df_wide)
+print(cf)
+
+# This is an elementary analysis to explore the relationships between variables in a Tobit regression setting.
+# the tobit regression limits were selected on the basis of the distribution/ variance on the dependent variable and its relationship to other independent variables
+
+# This part shows that the Model 1,4,6 are the ones where we see strong dependence of dependent variable upon the combo of the independent variables
+
+# Here are the experimental conditions of the above models:
+#   kept ~ bully + attention, left = 0, right = 60
+ 
+#   kept ~ moc1 + moc2:ee + moc2:ne + moc2:nb, left = 0, right = 60, data = subset(df_, bully == 0)
+ 
+#   kept ~ moc1 + moc2:ee + moc2:ne + moc2:nb, left = 0, right = 60, data = subset(df_, bully == 1)
+
+# Based on this, the secondary analysis is performed to check the exact relationship in detail
