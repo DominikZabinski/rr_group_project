@@ -426,9 +426,9 @@ print("Kruskal-Wallis test for Bully Dictator Game:")
 print(kruskal_BDG)
 
 # Perform Mann-Whitney U test for BDG choice
-group_C <- BDG[BDG$treatment_group == "C", "kept"]
-group_TD <- BDG[BDG$treatment_group == "TD", "kept"]
-group_MD <- BDG[BDG$treatment_group == "MD", "kept"]
+group_C <- BDG[BDG$treatment_group == "C", "kept"]$kept
+group_TD <- BDG[BDG$treatment_group == "TD", "kept"]$kept
+group_MD <- BDG[BDG$treatment_group == "MD", "kept"]$kept
 
 # Perform Mann-Whitney U test between TD and MD for BDG
 # This test compares the distribution of 'kept' between TD and MD within the Bully Dictator Game
@@ -880,9 +880,9 @@ print("Kruskal-Wallis test for Attention:")
 print(kruskal_attention)
 
 # Filter data for treatment groups
-group_C <- df[df$treatment_group == "C", "attention"]
-group_TD <- df[df$treatment_group == "TD", "attention"]
-group_MD <- df[df$treatment_group == "MD", "attention"]
+group_C <- df[df$treatment_group == "C", "attention"]$attention
+group_TD <- df[df$treatment_group == "TD", "attention"]$attention
+group_MD <- df[df$treatment_group == "MD", "attention"]$attention
 
 # Perform Mann-Whitney U test between TD and MD
 result_TD_MD <- wilcox.test(group_TD, group_MD)
@@ -1149,7 +1149,6 @@ Table 3: Tobit regressions of Got on experimental condition “cognitive manipul
 *Reproduced*
 
 ```{r}
-df$MD <- ifelse(df$moc2 == 1, 1, 0)
 df$TD <- ifelse(df$treatment_group == "TD", 1, 0)
 
 model_list <- list(
@@ -1272,21 +1271,29 @@ Table 4: Hurdle regressions of Give (Endowment-Got).
 
 ```{r hurdle}
 # Declaring models
-h1 <- hurdle(formula = give ~ game_type + treatment_group + crt_right + as.factor(female) + household_income, data = df)
-h2 <- hurdle(formula = give ~ game_type + treatment_group + crt_right + as.factor(female) + household_income + ee + nb + ne, data = df)
-h3 <- hurdle(formula = give ~ game_type + treatment_group + crt_int + as.factor(female) + household_income, data = df)
-h4 <- hurdle(formula = give ~ game_type + treatment_group + crt_int + as.factor(female) + household_income + ee + nb + ne, data = df)
+h1 <- hurdle(formula = give ~ BDG + treatment_group_factor + crt_right + female + household_income, data = df)
+h2 <- hurdle(formula = give ~ BDG + treatment_group_factor + crt_right + female + household_income + ee + nb + ne, data = df)
+df$crt_rightcopy <- df$crt_right
+df$crt_right <- df$crt_int
+h3 <- hurdle(formula = give ~ BDG + treatment_group_factor + crt_right + female + household_income, data = df)
+h4 <- hurdle(formula = give ~ BDG + treatment_group_factor + crt_right + female + household_income + ee + nb + ne, data = df)
 
 # Printing results for count part
-kable(x = to_frame_multi(lapply(list(h1, h2, h3, h4), function(x) pretty_t(summary(x)$coefficients$count))),
-      col.names = c("Variable", "right", "right", "intuitive", "intuitive"), caption = "First hurdle", escape = F) %>%
+res <- to_frame_multi(lapply(list(h1, h2, h3, h4), function(x) pretty_t(summary(x)$coefficients$count))) 
+names(res) <- c("vars", "first", "second", "third", "fourth")
+for (i in names(res)) res[[i]][is.na(res[[i]])] <- ""
+res %>% reorder_rename(named_vector = vars_final) %>% 
+    kable(col.names = c("Variable", "right", "right", "intuitive", "intuitive"), caption = "First hurdle", escape = F) %>%
     kable_styling()
 ```
 
 ```{r}
 # Printing results for zero part
-kable(x = to_frame_multi(lapply(list(h1, h2, h3, h4), function(x) pretty_t(summary(x)$coefficients$zero))), 
-      col.names = c("Variable", "right", "right", "intuitive", "intuitive"), caption = "Second hurdle", escape = F) %>% 
+res <- to_frame_multi(lapply(list(h1, h2, h3, h4), function(x) pretty_t(summary(x)$coefficients$zero))) 
+names(res) <- c("vars", "first", "second", "third", "fourth")
+for (i in names(res)) res[[i]][is.na(res[[i]])] <- ""
+res %>% reorder_rename(named_vector = vars_final) %>% 
+    kable(col.names = c("Variable", "right", "right", "intuitive", "intuitive"), caption = "Second hurdle", escape = F) %>%
     kable_styling()
 ```
 </div></div>
